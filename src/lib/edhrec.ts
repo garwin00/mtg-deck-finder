@@ -82,6 +82,7 @@ type AverageDeck = {
 
 type CommanderPage = {
   tag_counts?: { slug: string; value: string; count: number }[];
+  bracket_counts?: Record<string, number>;
   container?: {
     json_dict?: {
       cardlists?: {
@@ -102,8 +103,23 @@ export type CardStat = {
   synergy: number;
 };
 
+/**
+ * How players actually pitch this commander, from the brackets they self-report
+ * on EDHREC. Distinct from the per-deck estimate in match.ts, which is a floor
+ * derived from Game Changer count and knows nothing about how a deck is played.
+ */
+export type BracketMix = {
+  counts: Record<string, number>;
+  total: number;
+  /** Mean of the 1-5 scale. */
+  mean: number;
+  /** The single most reported bracket, which often isn't the rounded mean. */
+  mode: number;
+};
+
 export type CommanderData = {
   variants: DeckVariant[];
+  brackets?: BracketMix;
   /** Card name -> usage. Absent for cards EDHREC's lists don't reach. */
   stats: Map<string, CardStat>;
 };
@@ -128,6 +144,7 @@ const MAX_THEMES = 6;
 export async function fetchCommanderData(commander: OwnedCommander): Promise<CommanderData> {
   const variants: DeckVariant[] = [{ label: "Average deck", numDecks: commander.numDecks }];
   const stats = new Map<string, CardStat>();
+  let brackets: BracketMix | undefined;
 
   try {
     const res = await fetch(`https://json.edhrec.com/pages/commanders/${commander.slug}.json`);
@@ -136,6 +153,19 @@ export async function fetchCommanderData(commander: OwnedCommander): Promise<Com
       for (const tag of page.tag_counts ?? []) {
         if (tag.count < MIN_THEME_DECKS || variants.length > MAX_THEMES) break;
         variants.push({ theme: tag.slug, label: tag.value, numDecks: tag.count });
+      }
+      const counts = page.bracket_counts;
+      if (counts) {
+        const pairs = Object.entries(counts).filter(([, n]) => n > 0);
+        const total = pairs.reduce((sum, [, n]) => sum + n, 0);
+        if (total > 0) {
+          brackets = {
+            counts,
+            total,
+            mean: pairs.reduce((sum, [k, n]) => sum + Number(k) * n, 0) / total,
+            mode: Number(pairs.sort((a, b) => b[1] - a[1])[0][0]),
+          };
+        }
       }
       for (const list of page.container?.json_dict?.cardlists ?? []) {
         for (const card of list.cardviews) {
@@ -150,7 +180,7 @@ export async function fetchCommanderData(commander: OwnedCommander): Promise<Com
   } catch {
     // No themes is fine — the average deck still stands on its own.
   }
-  return { variants, stats };
+  return { variants, stats, brackets };
 }
 
 /**

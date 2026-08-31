@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { CommanderDecks } from "@/components/CommanderDecks";
 import { useRequireCollection } from "@/components/CollectionGate";
-import { fetchAverageDeck, fetchCommanderData } from "@/lib/edhrec";
+import { fetchAverageDeck, fetchCommanderData, type BracketMix } from "@/lib/edhrec";
 import { matchDecks, type DeckMatch } from "@/lib/match";
 
 export default function CommanderPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -15,6 +15,7 @@ export default function CommanderPage({ params }: { params: Promise<{ slug: stri
   const [result, setResult] = useState<{
     slug: string;
     matches?: DeckMatch[];
+    brackets?: BracketMix;
     error?: string;
   } | null>(null);
   const [progress, setProgress] = useState({ slug: "", loaded: 0, total: 0 });
@@ -29,7 +30,7 @@ export default function CommanderPage({ params }: { params: Promise<{ slug: stri
 
     (async () => {
       try {
-        const { variants } = await fetchCommanderData(commander);
+        const { variants, brackets } = await fetchCommanderData(commander);
         if (cancelled) return;
         setProgress({ slug: commander.slug, loaded: 0, total: variants.length });
 
@@ -50,6 +51,7 @@ export default function CommanderPage({ params }: { params: Promise<{ slug: stri
         setResult({
           slug: commander.slug,
           matches: matchDecks(sources, index, collection, "given"),
+          brackets,
         });
       } catch (err) {
         if (!cancelled) {
@@ -79,6 +81,7 @@ export default function CommanderPage({ params }: { params: Promise<{ slug: stri
       ) : (
         <CommanderDecks
           commander={commander}
+          brackets={current?.brackets}
           matches={current?.matches ?? null}
           loaded={shown.loaded}
           total={shown.total}

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import type { DeckMatch } from "@/lib/match";
-import type { OwnedCommander } from "@/lib/edhrec";
+import type { BracketMix, OwnedCommander } from "@/lib/edhrec";
 import { DeckCard } from "./DeckCard";
 
 type Props = {
   commander: OwnedCommander;
+  brackets?: BracketMix;
   matches: DeckMatch[] | null;
   loaded: number;
   total: number;
@@ -17,16 +18,32 @@ type Props = {
  * already is. Scoring every variant up front is the point — browsing blind
  * would mean opening each one to find out.
  */
-export function CommanderDecks({ commander, matches, loaded, total }: Props) {
+export function CommanderDecks({ commander, brackets, matches, loaded, total }: Props) {
   return (
     <section>
       <Link href="/" className="text-sm text-muted underline hover:text-foreground">
         ← Back to your commanders
       </Link>
 
-      <div className="mt-3 flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold">{commander.name}</h2>
-        <span className="text-xs text-muted">
+      <div className="mt-3 flex items-baseline justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold">{commander.name}</h2>
+          {brackets && (
+            <p
+              className="mt-0.5 text-xs text-muted"
+              title={[1, 2, 3, 4, 5]
+                .map(
+                  (b) =>
+                    `Bracket ${b}: ${Math.round(((brackets.counts[b] ?? 0) / brackets.total) * 100)}%`
+                )
+                .join(" · ")}
+            >
+              Most decks are bracket {brackets.mode} · average{" "}
+              {brackets.mean.toFixed(1)} across {brackets.total.toLocaleString()} decks on EDHREC
+            </p>
+          )}
+        </div>
+        <span className="shrink-0 text-xs text-muted">
           {matches ? `${matches.length} decks` : `${loaded} / ${total}`}
         </span>
       </div>

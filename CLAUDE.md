@@ -135,9 +135,14 @@ collection. Read it before changing how images are fetched or displayed.
   staples. See `src/lib/images.ts`.
 - **Reversible Secret Lair printings are dropped** when a normal printing shares
   the name — left in, they shadow real cards including basic lands.
-- **Bracket = Game Changer count only** (0 → 1–2, 1–3 → 3, 4+ → 4). It is a
-  floor, presented with a disclaimer. Combos, land denial, tutors and extra
-  turns are V2.
+- **There are two brackets and they answer different questions.** The per-deck
+  one in `match.ts` is our own estimate from Game Changer count (0 → 1–2, 1–3 →
+  3, 4+ → 4): a floor, presented with a disclaimer, blind to combos, land denial,
+  tutors and extra turns. The one on a commander page is EDHREC's
+  `bracket_counts` — what players actually report for that commander. Keep them
+  labelled apart; showing the reported mix as if it were our estimate, or vice
+  versa, would be wrong in both directions. Report the mode as well as the mean,
+  because they disagree often (Krenko is mode 2, mean 2.9).
 - **Magic rules are never hardcoded.** Commander legality comes from
   `legalities.commander` + type line + "can be your commander"; the Game
   Changers list comes from Scryfall. If a change would mean a hand-maintained
