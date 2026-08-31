@@ -75,6 +75,7 @@ the UI, so keep it true.
 | --- | --- |
 | `/` | Upload, the commander grid, precons behind a toggle. |
 | `/collection` | Every owned card, paginated, with an estimated value. |
+| `/popular` | EDHREC's commander ranking, with ownership and completion over it. |
 | `/commander/[slug]` | Deck variants for one commander, scored. |
 | `/commander/[slug]/[theme]` | A deck as card images. `average` is the literal for the overall list. |
 | `/precon/[id]` | The same view for a precon. |
@@ -209,6 +210,11 @@ collection. Read it before changing how images are fetched or displayed.
   match buried the combination being looked for under every simpler one that fit
   inside it. Colourless is its own identity, so selecting it beside a colour
   matches nothing, which is right: no commander is colourless plus black.
+- **The popularity ranking exists for what it says about the user.** Restating
+  EDHREC's list is a worse EDHREC; the ownership and completion overlay, and
+  "you own 10 of the top 100", are the reason to browse it here. Every row links
+  out to them for the decklists. Do not start hosting that ranking as if it were
+  ours.
 - **Commander decks lead, precons are secondary.** Precons sit below the fold
   behind a Show toggle: for a real collection they mostly restate purchases.
 

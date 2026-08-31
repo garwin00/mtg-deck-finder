@@ -49,6 +49,8 @@ export type CollectionState = {
   index: CardIndex | null;
   precons: DeckMatch[] | null;
   owned: OwnedCommander[] | null;
+  /** Kept so the popularity ranking can be browsed, not just the owned subset. */
+  catalogue: CommanderCatalogue | null;
   prices: PriceIndex | null;
   printings: PrintingIndex | null;
   load: LoadState | null;
@@ -84,6 +86,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
   const [index, setIndex] = useState<CardIndex | null>(null);
   const [precons, setPrecons] = useState<DeckMatch[] | null>(null);
   const [owned, setOwned] = useState<OwnedCommander[] | null>(null);
+  const [catalogue, setCatalogue] = useState<CommanderCatalogue | null>(null);
   const [prices, setPrices] = useState<PriceIndex | null>(null);
   const [printings, setPrintings] = useState<PrintingIndex | null>(null);
   const [load, setLoad] = useState<LoadState | null>(null);
@@ -104,6 +107,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     setIndex(null);
     setPrecons(null);
     setOwned(null);
+    setCatalogue(null);
     setLoad(null);
     setError(undefined);
     setStatus("empty");
@@ -227,6 +231,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       const catalogue = (await fetch("/data/commanders.json").then((r) =>
         r.json()
       )) as CommanderCatalogue;
+      setCatalogue(catalogue);
       setOwned(ownedFromCatalogue(catalogue, cards, resolved));
 
       // Scores are cached against the collection and the card index together,
@@ -321,6 +326,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       index,
       precons,
       owned,
+      catalogue,
       prices,
       printings,
       load,
@@ -346,6 +352,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       index,
       precons,
       owned,
+      catalogue,
       prices,
       printings,
       load,

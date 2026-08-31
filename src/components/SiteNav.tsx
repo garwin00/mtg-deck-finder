@@ -7,6 +7,7 @@ import { useCollection } from "@/lib/collection-context";
 const TABS = [
   { href: "/", label: "Decks" },
   { href: "/collection", label: "Collection" },
+  { href: "/popular", label: "Popular" },
 ];
 
 /** Only useful once there's a collection to look at, so it hides until then. */
