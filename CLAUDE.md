@@ -100,6 +100,7 @@ the UI makes.
 | `src/lib/collection-context.tsx` | All collection state, and the upload pipeline. |
 | `src/lib/images.ts` | Card images from Scryfall's `/cards/collection` (75 names per POST, CORS-open) — which is why no image URLs are stored in the index. |
 | `src/components/DeckView.tsx` | A deck as card images, owned in colour and missing dimmed. |
+| `src/components/ManaCurve.tsx` | Mana curve, split owned/missing. Lands excluded, as a curve conventionally is. |
 
 ## Domain decisions (don't quietly reverse these)
 

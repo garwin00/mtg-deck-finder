@@ -10,6 +10,7 @@ import { cardmarketUrl, formatGbp, gbpPrice, type PriceIndex } from "@/lib/price
 import { fetchCardDetails, setIconUrl, type CardDetail } from "@/lib/images";
 import { CATEGORY_LABELS, CATEGORY_ORDER, type Category } from "@/lib/types";
 import { ColourPips } from "./ColourPips";
+import { ManaCurve } from "./ManaCurve";
 import { CompletionRing } from "./CompletionRing";
 
 const NO_DETAILS = new Map<string, CardDetail>();
@@ -156,7 +157,10 @@ export function DeckView({ match, prices, stats, backHref, backLabel }: Props) {
         </div>
 
         <aside className="w-full shrink-0 lg:w-80">
-          <div className="lg:sticky lg:top-6">
+          <div className="space-y-6 lg:sticky lg:top-6">
+            <ManaCurve entries={match.entries} details={details} />
+
+            <div>
             <div className="flex items-baseline justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
                 Missing ({missingCount})
@@ -236,6 +240,7 @@ export function DeckView({ match, prices, stats, backHref, backLabel }: Props) {
                 )}
               </>
             )}
+            </div>
           </div>
         </aside>
       </div>

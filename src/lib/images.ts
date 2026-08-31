@@ -21,6 +21,7 @@ type ScryfallCard = {
   set?: string;
   set_name?: string;
   mana_cost?: string;
+  cmc?: number;
   rarity?: string;
   image_uris?: { normal?: string };
   card_faces?: { image_uris?: { normal?: string } }[];
@@ -31,6 +32,8 @@ export type CardDetail = {
   set?: string;
   setName?: string;
   manaCost?: string;
+  /** Mana value, for the curve. */
+  cmc?: number;
   rarity?: string;
 };
 
@@ -65,6 +68,7 @@ function detailOf(card: ScryfallCard): CardDetail {
     set: card.set,
     setName: card.set_name,
     manaCost: card.mana_cost,
+    cmc: card.cmc,
     rarity: card.rarity,
   };
 }
