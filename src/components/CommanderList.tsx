@@ -39,6 +39,7 @@ export function CommanderList({ commanders }: Props) {
   const [query, setQuery] = useState("");
   const [colours, setColours] = useState<Set<string>>(new Set());
   const [type, setType] = useState("");
+  const [theme, setTheme] = useState("");
   const [sort, setSort] = useState<Sort>("popularity");
 
   const hasDates = useMemo(() => commanders.some((c) => c.addedAt), [commanders]);
@@ -57,11 +58,31 @@ export function CommanderList({ commanders }: Props) {
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   }, [commanders]);
 
+  // Only themes present in this collection, so the list is never full of
+  // options that would empty the grid.
+  const themes = useMemo(() => {
+    const tally = (pick: (c: OwnedCommander) => string[]) => {
+      const counts = new Map<string, number>();
+      for (const commander of commanders) {
+        for (const label of pick(commander) ?? []) counts.set(label, (counts.get(label) ?? 0) + 1);
+      }
+      return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    };
+    return { tribes: tally((c) => c.tribes), archetypes: tally((c) => c.archetypes) };
+  }, [commanders]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = commanders.filter((commander) => {
       if (q && !commander.name.toLowerCase().includes(q)) return false;
       if (type && !(commander.types ?? []).includes(type)) return false;
+      if (
+        theme &&
+        !(commander.tribes ?? []).includes(theme) &&
+        !(commander.archetypes ?? []).includes(theme)
+      ) {
+        return false;
+      }
       if (colours.size > 0) {
         // Within the selection: a commander fits if every colour it needs is
         // picked. Colourless is its own pip so it isn't swept in by every
@@ -83,9 +104,9 @@ export function CommanderList({ commanders }: Props) {
     }
     // "popularity" is the order the catalogue already arrives in.
     return sorted;
-  }, [commanders, query, type, colours, sort]);
+  }, [commanders, query, type, theme, colours, sort]);
 
-  const filtering = query !== "" || type !== "" || colours.size > 0;
+  const filtering = query !== "" || type !== "" || theme !== "" || colours.size > 0;
 
   const toggleColour = (key: string) =>
     setColours((current) => {
@@ -157,6 +178,37 @@ export function CommanderList({ commanders }: Props) {
           </label>
         )}
 
+        {(themes.tribes.length > 0 || themes.archetypes.length > 0) && (
+          <label className="flex items-center gap-2 text-muted">
+            Theme
+            <select
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+              className="max-w-52 rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-accent/60"
+            >
+              <option value="">Any</option>
+              {themes.tribes.length > 0 && (
+                <optgroup label="Tribes">
+                  {themes.tribes.map(([label, count]) => (
+                    <option key={label} value={label}>
+                      {label} ({count})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {themes.archetypes.length > 0 && (
+                <optgroup label="Archetypes">
+                  {themes.archetypes.map(([label, count]) => (
+                    <option key={label} value={label}>
+                      {label} ({count})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </label>
+        )}
+
         <div className="flex items-center gap-2 text-muted">
           Sort
           {(
@@ -187,6 +239,7 @@ export function CommanderList({ commanders }: Props) {
             onClick={() => {
               setQuery("");
               setType("");
+              setTheme("");
               setColours(new Set());
             }}
             className="text-muted underline hover:text-foreground"
@@ -207,7 +260,9 @@ export function CommanderList({ commanders }: Props) {
       )}
 
       <p className="mt-3 text-xs text-muted">
-        Decklists are fetched from EDHREC when you open a commander, not stored here.
+        Decklists are fetched from EDHREC when you open a commander, not stored here. Themes are
+        EDHREC&apos;s leading commanders per theme rather than an exhaustive tagging, so a filter
+        shows the best-known commanders for it rather than every one you own.
       </p>
     </section>
   );

@@ -17,7 +17,7 @@ npm run build        # next build (production build; run before committing)
 npm run lint         # eslint (flat config, eslint-config-next)
 npx tsc --noEmit     # type check — there is no `typecheck` script
 npm run build:data       # rebuild the card index from Scryfall + MTGJSON (network, ~1 min)
-npm run build:commanders # rebuild the commander catalogue from EDHREC (32 requests)
+npm run build:commanders # commander catalogue + themes from EDHREC (~470 requests, ~2 min)
 npm run build:prices     # cheapest EUR printing per card + ECB rate (~2 min)
 node scripts/make-sample-collection.mjs collections/sample-manabox.csv
 ```
@@ -53,8 +53,9 @@ Scryfall `is:gamechanger`, and emits two static JSON files into `public/data`:
 - `manifest.json` — uncompressed byte sizes, so the loading bar has a real total
   to measure against (`Content-Length` is the brotli size, the stream yields
   decompressed bytes).
-- `commanders.json` — EDHREC's ranked commanders: slug, card index, deck count.
-  Written by `build-commanders.mjs`. **No decklists.**
+- `commanders.json` — EDHREC's ranked commanders: slug, card index, deck count,
+  and the tribes and archetypes each is known for. Written by
+  `build-commanders.mjs`. **No decklists.**
 - `prices.json` — cheapest EUR printing and Cardmarket id per card, plus the
   ECB EUR→GBP rate. Written by `build-prices.mjs`, kept separate so it can
   refresh on its own cadence and only loads when a decklist is opened.
@@ -132,6 +133,14 @@ the UI makes.
   fetches decklists from EDHREC directly when the user opens a commander. Their
   JSON is CORS-open and cacheable. Do not reintroduce a decklist corpus without
   deciding the redistribution question first.
+- **Themes come from EDHREC's theme pages, inverted.** Each theme page lists its
+  leading commanders, so 435 requests give commander → themes rather than one
+  request per commander. That makes the tagging a "best-known commanders for
+  this theme" list, not exhaustive: 80% of a real collection's commanders carry
+  at least one, median two. Say so in the UI rather than implying completeness.
+- **Tribes are split from archetypes with Scryfall's creature-type catalogue,**
+  because EDHREC doesn't distinguish them. Their slugs are plural, so the check
+  tries `zombies → zombie`, `elves → elf`, `allies → ally`.
 - **A commander is not one deck.** EDHREC publishes an average deck per theme at
   `/average-decks/<commander>/<theme>`, so opening a commander scores the
   average plus its top themes. Every variant is scored before the list renders —

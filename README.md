@@ -45,8 +45,9 @@ file is never uploaded or persisted.
   buyable EUR printing of each card with its Cardmarket product id, plus the
   day's ECB EUR→GBP rate.
 - `scripts/build-commanders.mjs` builds `public/data/commanders.json` — the
-  commanders EDHREC ranks, with their exact average-deck slug and deck count.
-  It fetches 32 colour-bucket listings and no decklists at all.
+  commanders EDHREC ranks, with their exact average-deck slug, deck count, and
+  the tribes and archetypes each is known for. It fetches 32 colour-bucket
+  listings plus 435 theme pages, and no decklists at all.
 - `src/lib/collection.ts` stream-parses the CSV in a worker (PapaParse) and
   aggregates every printing and finish of a card into one owned quantity.
 - `src/lib/match.ts` scores each precon and estimates a bracket floor.

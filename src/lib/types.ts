@@ -60,7 +60,11 @@ export type Precon = {
  */
 export type CommanderCatalogue = {
   generatedAt: string;
-  decks: { s: string; c: number; n: number }[];
+  /** Theme vocabularies, split so tribes and archetypes can be offered apart. */
+  tribes: { s: string; l: string }[];
+  archetypes: { s: string; l: string }[];
+  /** `t` and `a` index into those vocabularies. */
+  decks: { s: string; c: number; n: number; t?: number[]; a?: number[] }[];
 };
 
 export type PreconIndex = {

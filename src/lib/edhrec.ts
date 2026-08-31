@@ -12,6 +12,9 @@ export type OwnedCommander = {
   colours: string;
   /** Creature types off the type line, for the typal filter. */
   types: string[];
+  /** How EDHREC's players actually build it. Empty for untagged commanders. */
+  tribes: string[];
+  archetypes: string[];
   /** When it entered the collection, if the export said. */
   addedAt?: number;
   /** Art crop, present for all but a couple of dozen commanders. */
@@ -56,6 +59,10 @@ export function ownedFromCatalogue(
       numDecks: entry.n,
       colours: card.ci,
       types: creatureTypes(card.t),
+      tribes: (entry.t ?? []).map((i) => catalogue.tribes[i]?.l).filter((l) => l !== undefined),
+      archetypes: (entry.a ?? [])
+        .map((i) => catalogue.archetypes[i]?.l)
+        .filter((l) => l !== undefined),
       addedAt: collection.addedAt.get(entry.c),
       art: card.art,
     });

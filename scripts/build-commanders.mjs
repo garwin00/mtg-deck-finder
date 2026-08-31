@@ -11,6 +11,11 @@
  * also fixes the names that don't slugify cleanly (M.O.D.O.K., double-faced
  * commanders).
  *
+ * Also inverts EDHREC's theme pages into commander -> themes, for the archetype
+ * and tribe filters. Each theme page lists its top commanders, so this is 435
+ * requests rather than one per commander, and the result is "EDHREC's leading
+ * commanders for this theme" rather than an exhaustive tagging.
+ *
  * Reads public/data/cards.json for the alias map, so run `npm run build:data`
  * first.
  *
@@ -31,7 +36,94 @@ const BUCKETS = [
   "glint-eye", "dune-brood", "ink-treader", "witch-maw", "yore-tiller", "five-color",
 ];
 
+const TAG_SITEMAP = "https://edhrec.com/sitemaps/tags.xml";
+const CREATURE_TYPES = "https://api.scryfall.com/catalog/creature-types";
+
 const log = (...a) => console.log("[build-commanders]", ...a);
+
+/** Run tasks with a bounded number in flight. */
+async function pool(items, size, worker) {
+  let cursor = 0;
+  await Promise.all(
+    Array.from({ length: size }, async () => {
+      for (;;) {
+        const i = cursor++;
+        if (i >= items.length) return;
+        await worker(items[i]);
+      }
+    })
+  );
+}
+
+/**
+ * EDHREC's theme slugs. The sitemap also carries colour-filtered variants
+ * (activated-abilities/azorius); only the bare themes are wanted.
+ */
+async function fetchThemeSlugs() {
+  const res = await fetch(TAG_SITEMAP, { headers: { "User-Agent": UA } });
+  if (!res.ok) throw new Error(`tag sitemap ${res.status}`);
+  const xml = await res.text();
+  const slugs = new Set();
+  for (const m of xml.matchAll(/<loc>[^<]*\/tags\/([a-z0-9-]+)<\/loc>/g)) slugs.add(m[1]);
+  return [...slugs];
+}
+
+/**
+ * Themes split into tribes and archetypes by checking the slug against
+ * Scryfall's creature-type catalogue, since EDHREC doesn't distinguish them.
+ * Their slugs are plural: zombies -> zombie, elves -> elf, allies -> ally.
+ */
+async function fetchCreatureTypes() {
+  const res = await fetch(CREATURE_TYPES, { headers: { "User-Agent": UA } });
+  if (!res.ok) throw new Error(`creature types ${res.status}`);
+  const { data } = await res.json();
+  return new Set(data.map((t) => t.toLowerCase()));
+}
+
+function isTribe(slug, creatureTypes) {
+  const words = slug.replace(/-/g, " ");
+  return [
+    words,
+    words.replace(/ies$/, "y"),
+    words.replace(/ves$/, "f"),
+    words.replace(/es$/, ""),
+    words.replace(/s$/, ""),
+  ].some((candidate) => creatureTypes.has(candidate));
+}
+
+/** commander slug -> theme slugs, plus each theme's display label. */
+async function fetchThemes() {
+  const slugs = await fetchThemeSlugs();
+  const creatureTypes = await fetchCreatureTypes();
+  log(`${slugs.length} themes to invert`);
+
+  const labels = new Map();
+  const byCommander = new Map();
+  let done = 0;
+  let failed = 0;
+
+  await pool(slugs, 6, async (slug) => {
+    try {
+      const page = await getJson(`${EDHREC}/tags/${slug}.json`);
+      // header is the display name, e.g. "+1/+1 Counters" for
+      // plus-1-plus-1-counters, which no slug transform would recover.
+      labels.set(slug, page.header || slug);
+      for (const list of page.container?.json_dict?.cardlists ?? []) {
+        if (!/Commanders/i.test(list.header)) continue;
+        for (const cv of list.cardviews) {
+          if (!byCommander.has(cv.sanitized)) byCommander.set(cv.sanitized, new Set());
+          byCommander.get(cv.sanitized).add(slug);
+        }
+      }
+    } catch {
+      failed++;
+    }
+    if (++done % 100 === 0) log(`  ${done}/${slugs.length} themes`);
+  });
+
+  log(`inverted ${done - failed} themes, ${failed} failed, ${byCommander.size} commanders tagged`);
+  return { labels, byCommander, creatureTypes };
+}
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function normalise(name) {
@@ -89,6 +181,22 @@ async function main() {
   const ranked = await fetchPopularity();
   log(`EDHREC ranks ${ranked.length} commanders`);
 
+  const { labels, byCommander, creatureTypes } = await fetchThemes();
+
+  // Only themes something in the catalogue actually uses are worth shipping.
+  const used = new Set();
+  for (const entry of ranked) for (const t of byCommander.get(entry.slug) ?? []) used.add(t);
+
+  const tribes = [];
+  const archetypes = [];
+  for (const slug of [...used].sort()) {
+    const target = isTribe(slug, creatureTypes) ? tribes : archetypes;
+    target.push({ s: slug, l: labels.get(slug) ?? slug });
+  }
+  const tribeAt = new Map(tribes.map((t, i) => [t.s, i]));
+  const archetypeAt = new Map(archetypes.map((a, i) => [a.s, i]));
+  log(`${tribes.length} tribes, ${archetypes.length} archetypes`);
+
   const unresolved = [];
   const decks = [];
   for (const entry of ranked) {
@@ -97,11 +205,24 @@ async function main() {
       unresolved.push(entry.name);
       continue;
     }
-    decks.push({ s: entry.slug, c: cardIndex, n: entry.numDecks });
+    const themes = [...(byCommander.get(entry.slug) ?? [])];
+    const deck = { s: entry.slug, c: cardIndex, n: entry.numDecks };
+    const t = themes.filter((x) => tribeAt.has(x)).map((x) => tribeAt.get(x));
+    const a = themes.filter((x) => archetypeAt.has(x)).map((x) => archetypeAt.get(x));
+    if (t.length) deck.t = t;
+    if (a.length) deck.a = a;
+    decks.push(deck);
   }
+  const tagged = decks.filter((d) => d.t || d.a).length;
+  log(`${tagged}/${decks.length} commanders have at least one theme`);
 
   await mkdir(OUT_DIR, { recursive: true });
-  const body = JSON.stringify({ generatedAt: new Date().toISOString(), decks });
+  const body = JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    tribes,
+    archetypes,
+    decks,
+  });
   await writeFile(path.join(OUT_DIR, "commanders.json"), body);
   log(`wrote ${decks.length} commanders (${(Buffer.byteLength(body) / 1e3).toFixed(0)}KB)`);
   if (unresolved.length) {
