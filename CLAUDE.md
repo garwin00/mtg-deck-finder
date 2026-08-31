@@ -107,8 +107,15 @@ opened on someone else's device still has no collection —
 
 ## Domain decisions (don't quietly reverse these)
 
-- **Basic lands are excluded from both sides of every percentage** and from the
-  shopping list. Collections hold basics in bulk; counting them inflates matches.
+- **Basic lands are shown but never scored.** They appear in the Lands group with
+  their counts, and the header states the mana base split, because a decklist is
+  unbuildable without knowing it runs 12 Swamps. They stay out of every
+  percentage and out of the shopping list: a real collection holds hundreds of
+  each, so counting them adds the same offset to every deck and tells the user
+  nothing. Measured on the test collection, it moves the median precon from
+  20.2% to 37.0% and lifts one deck from 48% to 64% purely for owning Swamps.
+  `Precon.basics` and `DeckSource.basics` are therefore `[cardIndex, count][]`,
+  not a bare total — the split has to survive the pipeline.
 - **Cards match by name, not printing.** Any printing or finish counts.
 - **DFCs are indexed under the full name and each face.** Collection lookup also
   tolerates `/`, `|` and dashes as face separators.

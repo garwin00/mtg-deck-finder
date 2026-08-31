@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { CardStat } from "@/lib/edhrec";
+import type { CardIndex } from "@/lib/types";
 import type { DeckEntry, DeckMatch } from "@/lib/match";
 import { missingAsCsv, missingAsText } from "@/lib/match";
 import { cardmarketUrl, formatGbp, gbpPrice, type PriceIndex } from "@/lib/prices";
@@ -20,6 +21,7 @@ const SIGNATURE_SYNERGY = 0.25;
 
 type Props = {
   match: DeckMatch;
+  index: CardIndex;
   prices: PriceIndex | null;
   /** Per-card usage from EDHREC. Absent for precons. */
   stats?: Map<string, CardStat>;
@@ -28,7 +30,7 @@ type Props = {
 };
 
 /** A whole deck as card images, owned in colour and missing dimmed. */
-export function DeckView({ match, prices, stats, backHref, backLabel }: Props) {
+export function DeckView({ match, index, prices, stats, backHref, backLabel }: Props) {
   const [loadedDetails, setLoadedDetails] = useState<{
     key: string;
     details: Map<string, CardDetail>;
@@ -41,7 +43,10 @@ export function DeckView({ match, prices, stats, backHref, backLabel }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchCardDetails(match.entries.map((e) => e.card.n))
+    fetchCardDetails([
+      ...match.entries.map((e) => e.card.n),
+      ...match.deck.basics.map(([i]) => index.cards[i]?.n).filter((n) => n !== undefined),
+    ])
       .then((loaded) => {
         if (!cancelled) setLoadedDetails({ key: match.deck.id, details: loaded });
       })
@@ -51,7 +56,7 @@ export function DeckView({ match, prices, stats, backHref, backLabel }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [match]);
+  }, [match, index]);
 
   // The commander leads, the way a decklist writeup does.
   const { commanderEntries, grouped } = useMemo(() => {
@@ -69,7 +74,7 @@ export function DeckView({ match, prices, stats, backHref, backLabel }: Props) {
     }
     return {
       commanderEntries: commanders,
-      grouped: CATEGORY_ORDER.filter((c) => buckets.has(c)).map((category) => ({
+      grouped: CATEGORY_ORDER.filter((c) => buckets.has(c) || c === "land").map((category) => ({
         category,
         entries: (buckets.get(category) ?? []).sort((a, b) => a.card.n.localeCompare(b.card.n)),
       })),
@@ -87,6 +92,25 @@ export function DeckView({ match, prices, stats, backHref, backLabel }: Props) {
     }
     return { total, unpriced };
   }, [match, prices]);
+
+  // Basics are part of the decklist and part of the mana base, but never
+  // scored — a collection holds them in bulk, so counting them would add the
+  // same offset to every deck and tell the user nothing.
+  const basicEntries = useMemo(
+    () =>
+      match.deck.basics
+        .map(([cardIndex, needed]) => ({ cardIndex, needed }))
+        .sort((a, b) => b.needed - a.needed),
+    [match]
+  );
+
+  const manaBase = useMemo(() => {
+    const basic = basicEntries.reduce((sum, b) => sum + b.needed, 0);
+    const nonbasic = match.entries
+      .filter((e) => e.category === "land")
+      .reduce((sum, e) => sum + e.needed, 0);
+    return { basic, nonbasic, total: basic + nonbasic };
+  }, [basicEntries, match]);
 
   const missingCount = match.missing.reduce((s, e) => s + (e.needed - e.have), 0);
 
@@ -128,7 +152,11 @@ export function DeckView({ match, prices, stats, backHref, backLabel }: Props) {
             <span className="rounded bg-surface-2 px-1.5 py-0.5">
               Bracket {match.bracket.label}
             </span>
-            {match.deck.basics > 0 && <span>+ {match.deck.basics} basics (ignored)</span>}
+            {manaBase.total > 0 && (
+              <span>
+                {manaBase.total} lands · {manaBase.nonbasic} nonbasic, {manaBase.basic} basic
+              </span>
+            )}
           </div>
         </div>
       </header>
@@ -142,9 +170,12 @@ export function DeckView({ match, prices, stats, backHref, backLabel }: Props) {
               details={details}
               prices={prices}
               stats={stats}
+              index={index}
             />
           )}
-          {grouped.map(({ category, entries }) => (
+          {grouped
+            .filter(({ category, entries }) => entries.length > 0 || category === "land")
+            .map(({ category, entries }) => (
             <CardGroup
               key={category}
               title={CATEGORY_LABELS[category]}
@@ -152,8 +183,12 @@ export function DeckView({ match, prices, stats, backHref, backLabel }: Props) {
               details={details}
               prices={prices}
               stats={stats}
+              // Basics belong with the lands, and are shown with their counts
+              // so the mana base is legible.
+              basics={category === "land" ? basicEntries : undefined}
+              index={index}
             />
-          ))}
+            ))}
         </div>
 
         <aside className="w-full shrink-0 lg:w-80">
@@ -254,17 +289,24 @@ function CardGroup({
   details,
   prices,
   stats,
+  basics,
+  index,
 }: {
   title: string;
   entries: DeckEntry[];
   details: Map<string, CardDetail>;
   prices: PriceIndex | null;
   stats?: Map<string, CardStat>;
+  basics?: { cardIndex: number; needed: number }[];
+  index: CardIndex;
 }) {
+  const count =
+    entries.reduce((s, e) => s + e.needed, 0) + (basics ?? []).reduce((s, b) => s + b.needed, 0);
+
   return (
     <section>
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
-        {title} ({entries.reduce((s, e) => s + e.needed, 0)})
+        {title} ({count})
       </h2>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {entries.map((entry) => (
@@ -276,8 +318,66 @@ function CardGroup({
             stat={stats?.get(entry.card.n)}
           />
         ))}
+        {(basics ?? []).map((basic) => {
+          const card = index.cards[basic.cardIndex];
+          if (!card) return null;
+          return (
+            <BasicTile
+              key={basic.cardIndex}
+              name={card.n}
+              needed={basic.needed}
+              detail={details.get(card.n)}
+            />
+          );
+        })}
       </div>
     </section>
+  );
+}
+
+/**
+ * A basic land. Shown with its count because the mana base is part of the
+ * decklist, but with no owned or missing state — basics sit outside the
+ * percentage, and colouring them either way would imply they were scored.
+ */
+function BasicTile({
+  name,
+  needed,
+  detail,
+}: {
+  name: string;
+  needed: number;
+  detail?: CardDetail;
+}) {
+  return (
+    <div>
+      <div className="relative aspect-[488/680] w-full overflow-hidden rounded-lg bg-surface-2">
+        {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
+        {detail?.image && (
+          <Image
+            src={detail.image}
+            alt={name}
+            fill
+            unoptimized
+            loading="lazy"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            className="object-cover"
+          />
+        )}
+        {!detail?.image && (
+          <span className="absolute inset-0 grid place-items-center p-2 text-center text-xs text-muted">
+            {name}
+          </span>
+        )}
+        <span className="absolute left-1.5 top-1.5 rounded bg-background/80 px-1.5 py-0.5 text-[11px] font-semibold">
+          {needed}×
+        </span>
+      </div>
+      <div className="mt-1.5 space-y-0.5">
+        <p className="truncate text-xs font-medium">{name}</p>
+        <p className="text-[11px] text-muted">Mana base</p>
+      </div>
+    </div>
   );
 }
 

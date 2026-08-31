@@ -13,7 +13,8 @@ export type DeckSource = {
   subtitle: string;
   kind: "precon" | "commander";
   commanders: number[];
-  basics: number;
+  /** The mana base, shown but never scored. */
+  basics: [number, number][];
   cards: [number, number][];
 };
 

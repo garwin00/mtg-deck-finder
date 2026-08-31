@@ -30,7 +30,7 @@ import type { CardIndex, CommanderCatalogue, PreconIndex } from "@/lib/types";
  */
 export type CollectionStatus = "unknown" | "empty" | "ready";
 
-type CollectionState = {
+export type CollectionState = {
   status: CollectionStatus;
   /** When the stored collection was saved, if it came from storage. */
   savedAt: number | null;

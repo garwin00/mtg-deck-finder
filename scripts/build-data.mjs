@@ -190,7 +190,9 @@ async function main() {
   // Resolve precon entries to card indices; drop basics from the matchable list.
   const decks = precons.map((deck) => {
     const cardRefs = [];
-    let basics = 0;
+    // Which basics, not just how many: a decklist is unbuildable without its
+    // mana base, so the split has to survive into the app.
+    const basicRefs = new Map();
     const unresolved = [];
     for (const e of deck.entries) {
       // MTGJSON writes meld and some Secret Lair cards as "Name // Name", so
@@ -203,7 +205,7 @@ async function main() {
         continue;
       }
       if (cards[idx].basic) {
-        basics += e.count;
+        basicRefs.set(idx, (basicRefs.get(idx) ?? 0) + e.count);
         continue;
       }
       cardRefs.push([idx, e.count]);
@@ -219,7 +221,7 @@ async function main() {
       commanders: deck.commanders
         .map((n) => aliasKeys(n).map((k) => byAlias.get(k)).find((i) => i !== undefined))
         .filter((i) => i !== undefined),
-      basics,
+      basics: [...basicRefs],
       cards: cardRefs,
     };
   });

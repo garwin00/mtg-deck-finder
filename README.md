@@ -57,9 +57,11 @@ so it survives a refresh, with a control to erase it.
 
 ## Decisions worth knowing
 
-- **Basic lands are excluded from both sides of every percentage.** Most
-  collections hold basics in bulk, so counting them would inflate completion;
-  they are also left off the shopping list.
+- **Basic lands are shown but not scored.** The decklist shows them with their
+  counts and the header gives the mana base split, since a deck can't be built
+  without knowing it runs 12 Swamps. They stay out of the percentages and the
+  shopping list: most collections hold hundreds of each, so counting them would
+  add the same offset to every deck.
 - **Cards are matched by name, not printing.** A collection's Showcase foil
   counts the same as the precon's printing.
 - **Double-faced cards** are indexed under the full name and each face, so

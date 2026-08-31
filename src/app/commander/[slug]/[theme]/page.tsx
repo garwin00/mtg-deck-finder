@@ -78,6 +78,7 @@ export default function CommanderDeckPage({
       ) : (
         <DeckView
           match={current.match}
+          index={state.index}
           prices={state.prices}
           stats={current.stats}
           backHref={`/commander/${slug}`}

@@ -47,8 +47,8 @@ export type Precon = {
   release: string;
   /** Indices into CardIndex.cards. */
   commanders: number[];
-  /** Basic lands in the printed deck, excluded from matching. */
-  basics: number;
+  /** Basic lands the deck runs, as `[cardIndex, count]`. Not scored. */
+  basics: [number, number][];
   /** [cardIndex, count] for every non-basic card. */
   cards: [number, number][];
 };

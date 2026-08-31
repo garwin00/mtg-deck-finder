@@ -21,7 +21,13 @@ export default function PreconPage({ params }: { params: Promise<{ id: string }>
       {!match ? (
         <p className="text-sm text-muted">That precon isn&apos;t in the index.</p>
       ) : (
-        <DeckView match={match} prices={state.prices} backHref="/" backLabel="Back to your decks" />
+        <DeckView
+          match={match}
+          index={state.index}
+          prices={state.prices}
+          backHref="/"
+          backLabel="Back to your decks"
+        />
       )}
     </main>
   );

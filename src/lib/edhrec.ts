@@ -174,13 +174,15 @@ export async function fetchAverageDeck(
       .find((i) => i !== undefined);
 
   const cards: [number, number][] = [];
-  let basics = 0;
+  const basics = new Map<number, number>();
   for (const list of Object.values(payload.deck?.cards ?? {})) {
     for (const [name, count] of list) {
       const cardIndex = resolve(name);
       if (cardIndex === undefined) continue;
       if (index.cards[cardIndex].basic) {
-        basics += count;
+        // Kept per type: the mana base is part of the decklist even though it
+        // is never scored.
+        basics.set(cardIndex, (basics.get(cardIndex) ?? 0) + count);
         continue;
       }
       cards.push([cardIndex, count]);
@@ -200,7 +202,7 @@ export async function fetchAverageDeck(
     subtitle: `${variant.numDecks.toLocaleString()} decks`,
     kind: "commander",
     commanders: commanders.length > 0 ? commanders : [commander.cardIndex],
-    basics,
+    basics: [...basics],
     cards,
   };
 }
