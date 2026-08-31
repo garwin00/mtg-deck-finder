@@ -16,6 +16,13 @@ npm run dev
 
 Open http://localhost:3000 and drop a CSV on the page.
 
+Personal exports belong in `collections/`, which is gitignored. To generate a
+synthetic one for testing:
+
+```bash
+node scripts/make-sample-collection.mjs collections/sample-manabox.csv
+```
+
 ## How it works
 
 Everything after the initial data load happens in the browser — the collection
