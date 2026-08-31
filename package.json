@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "build:data": "node scripts/build-data.mjs",
-    "build:commanders": "node scripts/build-commanders.mjs"
+    "build:commanders": "node scripts/build-commanders.mjs",
+    "build:prices": "node scripts/build-prices.mjs"
   },
   "dependencies": {
     "next": "16.3.3",

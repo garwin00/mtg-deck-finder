@@ -19,6 +19,7 @@ jobs:
       - run: npm ci
       - run: npm run build:data
       - run: npm run build:commanders
+      - run: npm run build:prices
       - name: Commit refreshed index
         run: |
           git config user.name "github-actions[bot]"

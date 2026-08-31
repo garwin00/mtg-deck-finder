@@ -41,6 +41,9 @@ file is never uploaded or persisted.
     duplicates.
   - **Game Changers** from Scryfall's `is:gamechanger` search, so the list stays
     correct when WotC revises it rather than being hardcoded here.
+- `scripts/build-prices.mjs` builds `public/data/prices.json` — the cheapest
+  buyable EUR printing of each card with its Cardmarket product id, plus the
+  day's ECB EUR→GBP rate.
 - `scripts/build-commanders.mjs` builds `public/data/commanders.json` — the
   commanders EDHREC ranks, with their exact average-deck slug and deck count.
   It fetches 32 colour-bucket listings and no decklists at all.
@@ -67,6 +70,12 @@ file is never uploaded or persisted.
   coarse: a creature stays a creature unless it is obviously mana ramp.
 - **Bracket estimates count Game Changers only.** WotC also weighs two-card
   combos, mass land denial, tutors and extra turns; those are V2.
+- **Prices are indicative, not a quote.** They are the cheapest buyable printing
+  on Cardmarket from a single snapshot, converted at the ECB reference rate.
+  They ignore condition, seller and shipping, and EU sellers add around 20%
+  import VAT on delivery to the UK. Gold-bordered World Championship reprints
+  are excluded even though Scryfall marks them legal — they are usually the
+  cheapest listing and no playgroup accepts them.
 - **EDHREC decklists are fetched by the browser, one at a time, when you open a
   commander.** Nothing of theirs is crawled in bulk or served from here. A
   precon-only tool mostly rediscovers precons you already bought — a real

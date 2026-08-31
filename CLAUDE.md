@@ -18,6 +18,7 @@ npm run lint         # eslint (flat config, eslint-config-next)
 npx tsc --noEmit     # type check — there is no `typecheck` script
 npm run build:data       # rebuild the card index from Scryfall + MTGJSON (network, ~1 min)
 npm run build:commanders # rebuild the commander catalogue from EDHREC (32 requests)
+npm run build:prices     # cheapest EUR printing per card + ECB rate (~2 min)
 node scripts/make-sample-collection.mjs collections/sample-manabox.csv
 ```
 
@@ -54,6 +55,9 @@ Scryfall `is:gamechanger`, and emits two static JSON files into `public/data`:
   decompressed bytes).
 - `commanders.json` — EDHREC's ranked commanders: slug, card index, deck count.
   Written by `build-commanders.mjs`. **No decklists.**
+- `prices.json` — cheapest EUR printing and Cardmarket id per card, plus the
+  ECB EUR→GBP rate. Written by `build-prices.mjs`, kept separate so it can
+  refresh on its own cadence and only loads when a decklist is opened.
 
 Anything derived from oracle text (category, commander legality, Game Changer,
 basic-land flag) is computed **here**, so the browser never downloads oracle text.
@@ -74,6 +78,7 @@ the browser — that promise is made in the UI, so keep it true.
 | `src/lib/normalise.ts` | Name normalisation. **Must stay identical to the copy in `build-data.mjs`** — the alias map is built with it. |
 | `src/lib/collection.ts` | `readRows` (CSV → raw names, no index needed) then `resolveCollection` (raw names → card indices). Kept separate so the card count shows while the index downloads. |
 | `src/lib/load.ts` | Progress-reporting JSON fetch, measured against `manifest.json`. |
+| `src/lib/prices.ts` | GBP conversion, Cardmarket links, currency formatting. |
 | `src/lib/edhrec.ts` | Owned-commander list, deck variants per commander, and the on-demand average-deck fetch. The only place EDHREC decklists are touched. |
 | `src/lib/match.ts` | Completion scoring, bracket estimate, export formats. |
 | `src/components/` | Presentational only — no data fetching, no parsing. |
@@ -109,6 +114,16 @@ the browser — that promise is made in the UI, so keep it true.
   showing deck names without completion would mean opening each to learn
   anything — but the list is ordered by **popularity**, not completion, so pass
   `matchDecks(..., "given")` and keep `fetchVariants`' order.
+- **Prices come from the cheapest *buyable* printing.** `build-prices.mjs` uses
+  `default_cards`, not `oracle_cards`, because the latter picks one arbitrary
+  printing whose price can run 27% high or be missing entirely. It also skips
+  gold-bordered World Championship reprints, oversized and digital printings:
+  Scryfall marks them commander-legal because legality belongs to the card
+  rather than the printing, and they are often the cheapest listing, so quoting
+  one sends the user to buy a card no playgroup accepts.
+- **Prices are an estimate and must stay labelled as one.** One snapshot,
+  cheapest printing, ignoring condition, seller and shipping — and EU sellers
+  add ~20% import VAT into the UK.
 - **Commander decks lead, precons are secondary.** Precons sit below the fold
   behind a Show toggle: for a real collection they mostly restate purchases.
 

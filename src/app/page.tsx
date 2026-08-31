@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dropzone } from "@/components/Dropzone";
 import { DeckCard } from "@/components/DeckCard";
 import { DeckDetail } from "@/components/DeckDetail";
@@ -15,6 +15,7 @@ import {
   type OwnedCommander,
 } from "@/lib/edhrec";
 import { fetchJsonWithProgress, type Manifest } from "@/lib/load";
+import type { PriceIndex } from "@/lib/prices";
 import { matchDecks, matchPrecons, type DeckMatch } from "@/lib/match";
 import type { CardIndex, CommanderCatalogue, PreconIndex } from "@/lib/types";
 
@@ -29,6 +30,7 @@ export default function Home() {
   const [commander, setCommander] = useState<OwnedCommander | null>(null);
   const [deckMatches, setDeckMatches] = useState<DeckMatch[] | null>(null);
   const [deckProgress, setDeckProgress] = useState({ loaded: 0, total: 0 });
+  const [prices, setPrices] = useState<PriceIndex | null>(null);
   const [threshold, setThreshold] = useState(50);
   const [showPrecons, setShowPrecons] = useState(false);
   const [selected, setSelected] = useState<DeckMatch | null>(null);
@@ -155,6 +157,24 @@ export default function Home() {
     setCommander(null);
     setDeckMatches(null);
   };
+
+  // Only needed once a decklist is open, so it loads on first open rather than
+  // adding to the upload wait.
+  useEffect(() => {
+    if (!selected || prices) return;
+    let cancelled = false;
+    fetch("/data/prices.json")
+      .then((r) => (r.ok ? (r.json() as Promise<PriceIndex>) : null))
+      .then((loaded) => {
+        if (!cancelled && loaded) setPrices(loaded);
+      })
+      .catch(() => {
+        // Prices are an extra; the decklist still works without them.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, prices]);
 
   const visible = useMemo(
     () => (matches ?? []).filter((m) => m.percent >= threshold),
@@ -290,7 +310,9 @@ export default function Home() {
         </>
       )}
 
-      {selected && <DeckDetail match={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <DeckDetail match={selected} prices={prices} onClose={() => setSelected(null)} />
+      )}
     </main>
   );
 }

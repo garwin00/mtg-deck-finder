@@ -4,12 +4,38 @@ import { useMemo, useState } from "react";
 import type { DeckEntry, DeckMatch } from "@/lib/match";
 import { missingAsCsv, missingAsText } from "@/lib/match";
 import { CATEGORY_LABELS, CATEGORY_ORDER, type Category } from "@/lib/types";
+import { cardmarketUrl, formatGbp, gbpPrice, type PriceIndex } from "@/lib/prices";
 import { ColourPips } from "./ColourPips";
 import { CompletionRing } from "./CompletionRing";
 
 /** Full decklist for one match, grouped the way a decklist writeup reads. */
-export function DeckDetail({ match, onClose }: { match: DeckMatch; onClose: () => void }) {
+export function DeckDetail({
+  match,
+  prices,
+  onClose,
+}: {
+  match: DeckMatch;
+  prices: PriceIndex | null;
+  onClose: () => void;
+}) {
   const [copied, setCopied] = useState(false);
+
+  // Indicative only: the cheapest printing of each card, from one snapshot,
+  // ignoring condition, seller and shipping.
+  const estimate = useMemo(() => {
+    if (!prices) return undefined;
+    let total = 0;
+    let unpriced = 0;
+    for (const entry of match.missing) {
+      const each = gbpPrice(prices, entry.cardIndex);
+      if (each === undefined) {
+        unpriced++;
+        continue;
+      }
+      total += each * (entry.needed - entry.have);
+    }
+    return { total, unpriced };
+  }, [match, prices]);
 
   // The commander is pulled out of its type group and pinned to the top, the
   // way a decklist writeup leads with it.
@@ -92,6 +118,9 @@ export function DeckDetail({ match, onClose }: { match: DeckMatch; onClose: () =
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">
               Missing cards ({match.missing.reduce((s, e) => s + (e.needed - e.have), 0)})
+              {estimate && match.missing.length > 0 && (
+                <span className="ml-2 font-normal text-muted">~{formatGbp(estimate.total)}</span>
+              )}
             </h3>
             <div className="flex gap-2">
               <button
@@ -112,8 +141,53 @@ export function DeckDetail({ match, onClose }: { match: DeckMatch; onClose: () =
               </button>
             </div>
           </div>
-          {match.missing.length === 0 && (
+          {match.missing.length === 0 ? (
             <p className="mt-2 text-xs text-muted">You own every non-basic card in this deck.</p>
+          ) : (
+            <>
+              <ul className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
+                {[...match.missing]
+                  .sort((a, b) => {
+                    const pa = prices ? (gbpPrice(prices, a.cardIndex) ?? -1) : 0;
+                    const pb = prices ? (gbpPrice(prices, b.cardIndex) ?? -1) : 0;
+                    return pb - pa || a.card.n.localeCompare(b.card.n);
+                  })
+                  .map((entry) => {
+                    const each = prices ? gbpPrice(prices, entry.cardIndex) : undefined;
+                    const url = prices ? cardmarketUrl(prices, entry.cardIndex) : undefined;
+                    const copies = entry.needed - entry.have;
+                    return (
+                      <li key={entry.cardIndex} className="flex items-center gap-3 px-3 py-2 text-sm">
+                        <span className="w-16 shrink-0 text-right text-xs tabular-nums text-muted">
+                          {each === undefined ? "—" : formatGbp(each * copies)}
+                        </span>
+                        <span className="w-8 shrink-0 text-xs text-muted">{copies}×</span>
+                        <span className="min-w-0 flex-1 truncate">{entry.card.n}</span>
+                        {url && (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 text-xs text-muted underline hover:text-foreground"
+                          >
+                            Cardmarket
+                          </a>
+                        )}
+                      </li>
+                    );
+                  })}
+              </ul>
+
+              {prices && (
+                <p className="mt-2 text-xs text-muted">
+                  Cheapest printing on Cardmarket, converted at the ECB rate
+                  {prices.rateDate ? ` of ${prices.rateDate}` : ""}. Excludes shipping, and EU
+                  sellers add around 20% import VAT on delivery to the UK.
+                  {estimate && estimate.unpriced > 0 &&
+                    ` ${estimate.unpriced} card${estimate.unpriced === 1 ? " has" : "s have"} no listed price.`}
+                </p>
+              )}
+            </>
           )}
         </section>
 
