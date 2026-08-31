@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { CollectionProvider } from "@/lib/collection-context";
+import { SiteNav } from "@/components/SiteNav";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -17,7 +18,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         {/* Holds the collection so it survives navigation between routes. */}
-        <CollectionProvider>{children}</CollectionProvider>
+        <CollectionProvider>
+          <SiteNav />
+          {children}
+        </CollectionProvider>
       </body>
     </html>
   );

@@ -74,6 +74,7 @@ the UI, so keep it true.
 | Route | Shows |
 | --- | --- |
 | `/` | Upload, the commander grid, precons behind a toggle. |
+| `/collection` | Every owned card, paginated, with an estimated value. |
 | `/commander/[slug]` | Deck variants for one commander, scored. |
 | `/commander/[slug]/[theme]` | A deck as card images. `average` is the literal for the overall list. |
 | `/precon/[id]` | The same view for a precon. |
@@ -100,6 +101,7 @@ opened on someone else's device still has no collection —
 | `src/components/` | Presentational only — no data fetching, no parsing. |
 | `src/lib/collection-context.tsx` | All collection state, and the upload pipeline. |
 | `src/lib/images.ts` | Card images from Scryfall's `/cards/collection` (75 names per POST, CORS-open) — which is why no image URLs are stored in the index. |
+| `src/components/CollectionGrid.tsx` | Owned cards, filtered and paged. Pages at 60 so each page is one Scryfall image request rather than 35 up front. |
 | `src/components/DeckView.tsx` | A deck as card images, owned in colour and missing dimmed. |
 | `src/components/ManaCurve.tsx` | Mana curve, split owned/missing. Lands excluded, as a curve conventionally is. |
 
