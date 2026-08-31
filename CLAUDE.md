@@ -48,12 +48,17 @@ Scryfall `is:gamechanger`, and emits two static JSON files into `public/data`:
 - `cards.json` — slim `CardRecord`s (single-letter keys: `n`, `t`, `ci`, `r`,
   `cat`, `gc`, `cmdr`, `basic`, `art`) plus a normalised-name → index alias map.
 - `precons.json` — decklists as `[cardIndex, count]` pairs into `cards.json`.
+- `manifest.json` — uncompressed byte sizes, so the loading bar has a real total
+  to measure against (`Content-Length` is the brotli size, the stream yields
+  decompressed bytes).
 
 Anything derived from oracle text (category, commander legality, Game Changer,
 basic-land flag) is computed **here**, so the browser never downloads oracle text.
 
-**Runtime — client only.** `src/app/page.tsx` fetches both JSON files, parses the
-CSV in a PapaParse worker, matches, and renders. There are no API routes, no
+**Runtime — client only.** `src/app/page.tsx` reads the CSV in a PapaParse worker
+first, then downloads the index behind a progress bar, resolves, matches and
+renders. Results reveal progressively: precon matches land as soon as the card
+index does, and further deck sources are meant to slot in behind them. There are no API routes, no
 server components doing data work, no database. The collection file never leaves
 the browser — that promise is made in the UI, so keep it true.
 
@@ -64,7 +69,8 @@ the browser — that promise is made in the UI, so keep it true.
 | `scripts/build-data.mjs` | The entire data pipeline. Most data bugs live here. |
 | `src/lib/types.ts` | `CardRecord`, `Precon`, category enum + labels/order. |
 | `src/lib/normalise.ts` | Name normalisation. **Must stay identical to the copy in `build-data.mjs`** — the alias map is built with it. |
-| `src/lib/collection.ts` | CSV header sniffing, stream parse, quantity aggregation. |
+| `src/lib/collection.ts` | `readRows` (CSV → raw names, no index needed) then `resolveCollection` (raw names → card indices). Kept separate so the card count shows while the index downloads. |
+| `src/lib/load.ts` | Progress-reporting JSON fetch, measured against `manifest.json`. |
 | `src/lib/match.ts` | Completion scoring, bracket estimate, export formats. |
 | `src/components/` | Presentational only — no data fetching, no parsing. |
 | `src/app/page.tsx` | All state lives here and is passed down. |

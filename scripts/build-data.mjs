@@ -226,13 +226,22 @@ async function main() {
 
   await mkdir(OUT_DIR, { recursive: true });
   const generatedAt = new Date().toISOString();
+
+  // Sizes go in a manifest because the loading UI needs a real total to measure
+  // against: Content-Length is the brotli-compressed size while the stream
+  // yields decompressed bytes, so progress against it runs well past 100%.
+  const written = {};
+  const write = async (name, payload) => {
+    const body = JSON.stringify(payload);
+    await writeFile(path.join(OUT_DIR, name), body);
+    written[name.replace(/\.json$/, "")] = { bytes: Buffer.byteLength(body) };
+  };
+
+  await write("cards.json", { generatedAt, cards, aliases: Object.fromEntries(byAlias) });
+  await write("precons.json", { generatedAt, gameChangerCount: gameChangers.size, decks });
   await writeFile(
-    path.join(OUT_DIR, "cards.json"),
-    JSON.stringify({ generatedAt, cards, aliases: Object.fromEntries(byAlias) })
-  );
-  await writeFile(
-    path.join(OUT_DIR, "precons.json"),
-    JSON.stringify({ generatedAt, gameChangerCount: gameChangers.size, decks })
+    path.join(OUT_DIR, "manifest.json"),
+    JSON.stringify({ generatedAt, files: written })
   );
   log(`wrote ${cards.length} cards and ${decks.length} decks to public/data`);
 }

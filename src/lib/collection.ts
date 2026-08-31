@@ -37,15 +37,24 @@ function pickHeader(headers: string[], candidates: string[]): string | undefined
 
 type Row = Record<string, string | undefined>;
 
+/** A collection as read off disk, before it is resolved against the index. */
+export type CollectionRows = {
+  /** Raw card name -> quantity, summed across printings and finishes. */
+  entries: Map<string, number>;
+  rows: number;
+  totalCards: number;
+};
+
 /**
- * Stream-parse a collection export in a worker and aggregate it against the
- * card index. Multiple printings and finishes of one card collapse into a
- * single owned quantity.
+ * Stream-parse a collection export in a worker.
+ *
+ * Deliberately does not touch the card index: reading the file is local and
+ * near-instant, so splitting it from resolution lets the UI report how many
+ * cards it read while the index is still downloading.
  */
-export function parseCollection(file: File, index: CardIndex): Promise<Collection> {
+export function readRows(file: File): Promise<CollectionRows> {
   return new Promise((resolve, reject) => {
-    const owned = new Map<number, number>();
-    const unknown = new Set<string>();
+    const entries = new Map<string, number>();
     let rows = 0;
     let totalCards = 0;
     let nameHeader: string | undefined;
@@ -79,28 +88,37 @@ export function parseCollection(file: File, index: CardIndex): Promise<Collectio
           const qty = qtyHeader ? Number.parseInt(row[qtyHeader] ?? "1", 10) : 1;
           const quantity = Number.isFinite(qty) && qty > 0 ? qty : 1;
           totalCards += quantity;
-
-          const cardIndex = resolve_(rawName, index);
-          if (cardIndex === undefined) {
-            unknown.add(rawName);
-            continue;
-          }
-          owned.set(cardIndex, (owned.get(cardIndex) ?? 0) + quantity);
+          entries.set(rawName, (entries.get(rawName) ?? 0) + quantity);
         }
       },
       complete: () => {
         if (failed) return;
-        resolve({
-          owned,
-          rows,
-          totalCards,
-          unknown: [...unknown],
-          distinctMatched: owned.size,
-        });
+        resolve({ entries, rows, totalCards });
       },
       error: (err) => reject(err),
     });
   });
+}
+
+/** Resolve parsed rows against the card index. Synchronous and fast. */
+export function resolveCollection(parsed: CollectionRows, index: CardIndex): Collection {
+  const owned = new Map<number, number>();
+  const unknown: string[] = [];
+  for (const [rawName, quantity] of parsed.entries) {
+    const cardIndex = resolve_(rawName, index);
+    if (cardIndex === undefined) {
+      unknown.push(rawName);
+      continue;
+    }
+    owned.set(cardIndex, (owned.get(cardIndex) ?? 0) + quantity);
+  }
+  return {
+    owned,
+    rows: parsed.rows,
+    totalCards: parsed.totalCards,
+    unknown,
+    distinctMatched: owned.size,
+  };
 }
 
 /** Resolve one collection name to a card index, tolerating DFC name variants. */

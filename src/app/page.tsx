@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import { Dropzone } from "@/components/Dropzone";
 import { DeckCard } from "@/components/DeckCard";
 import { DeckDetail } from "@/components/DeckDetail";
-import { CsvShapeError, parseCollection, type Collection } from "@/lib/collection";
+import { LoadingPanel, type LoadState } from "@/components/LoadingPanel";
+import { CsvShapeError, readRows, resolveCollection, type Collection } from "@/lib/collection";
+import { fetchJsonWithProgress, type Manifest } from "@/lib/load";
 import { matchPrecons, ownedCommanders, type DeckMatch } from "@/lib/match";
 import type { CardIndex, PreconIndex } from "@/lib/types";
 
@@ -16,7 +18,7 @@ export default function Home() {
   const [matches, setMatches] = useState<DeckMatch[] | null>(null);
   const [threshold, setThreshold] = useState(50);
   const [selected, setSelected] = useState<DeckMatch | null>(null);
-  const [status, setStatus] = useState<string>();
+  const [load, setLoad] = useState<LoadState | null>(null);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
 
@@ -24,21 +26,43 @@ export default function Home() {
     setBusy(true);
     setError(undefined);
     setSelected(null);
+    setMatches(null);
+    setCollection(null);
+    setLoad({ fileName: file.name, received: 0, total: 0, label: "Reading your collection…" });
+
     try {
-      setStatus("Loading card database…");
+      // Local and near-instant, so the card count is on screen before any
+      // network work starts.
+      const parsed = await readRows(file);
+      setLoad((l) => l && { ...l, cardsRead: parsed.totalCards, label: "Loading card database…" });
+
+      const manifest = (await fetch("/data/manifest.json").then((r) => r.json())) as Manifest;
+      const total = (manifest.files.cards?.bytes ?? 0) + (manifest.files.precons?.bytes ?? 0);
+      setLoad((l) => l && { ...l, total });
+
+      // onBytes fires per chunk; coalesce so the bar doesn't drive a re-render
+      // for every few kilobytes.
+      const progress = { cards: 0, precons: 0 };
+      let painted = 0;
+      const track = (key: keyof typeof progress) => (received: number) => {
+        progress[key] = received;
+        const sum = progress.cards + progress.precons;
+        if (sum - painted < 48_000 && sum < total) return;
+        painted = sum;
+        setLoad((l) => l && { ...l, received: sum });
+      };
+
       const [cards, precons] = await Promise.all([
-        fetch("/data/cards.json").then((r) => r.json() as Promise<CardIndex>),
-        fetch("/data/precons.json").then((r) => r.json() as Promise<PreconIndex>),
+        fetchJsonWithProgress<CardIndex>("/data/cards.json", track("cards")),
+        fetchJsonWithProgress<PreconIndex>("/data/precons.json", track("precons")),
       ]);
+      setLoad((l) => l && { ...l, received: total, label: "Matching precons…" });
+
+      const resolved = resolveCollection(parsed, cards);
       setIndex(cards);
-
-      setStatus(`Reading ${file.name}…`);
-      const parsed = await parseCollection(file, cards);
-      setCollection(parsed);
-
-      setStatus("Matching against precons…");
-      setMatches(matchPrecons(precons, cards, parsed));
-      setStatus(undefined);
+      setCollection(resolved);
+      setMatches(matchPrecons(precons, cards, resolved));
+      setLoad(null);
     } catch (err) {
       setMatches(null);
       setCollection(null);
@@ -47,7 +71,7 @@ export default function Home() {
           ? err.message
           : `Couldn't read that file: ${err instanceof Error ? err.message : String(err)}`
       );
-      setStatus(undefined);
+      setLoad(null);
     } finally {
       setBusy(false);
     }
@@ -73,9 +97,9 @@ export default function Home() {
         </p>
       </header>
 
-      {!matches && (
-        <Dropzone onFile={handleFile} busy={busy} status={status} />
-      )}
+      {load && <LoadingPanel state={load} />}
+
+      {!matches && !load && <Dropzone onFile={handleFile} busy={busy} />}
 
       {error && (
         <p className="mt-4 rounded-lg border border-[#e07a6a]/40 bg-[#e07a6a]/10 p-4 text-sm">
@@ -118,6 +142,7 @@ export default function Home() {
               onClick={() => {
                 setMatches(null);
                 setCollection(null);
+                setIndex(null);
               }}
               className="text-sm text-muted underline hover:text-foreground"
             >

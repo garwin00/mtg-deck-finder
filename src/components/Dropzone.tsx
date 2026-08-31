@@ -5,11 +5,10 @@ import { useRef, useState } from "react";
 type Props = {
   onFile: (file: File) => void;
   busy: boolean;
-  status?: string;
 };
 
 /** Collection CSV drop target. Nothing leaves the browser. */
-export function Dropzone({ onFile, busy, status }: Props) {
+export function Dropzone({ onFile, busy }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -53,7 +52,6 @@ export function Dropzone({ onFile, busy, status }: Props) {
       >
         {busy ? "Working…" : "Choose a file"}
       </button>
-      {status && <p className="mt-4 text-sm text-muted">{status}</p>}
       <p className="mt-6 text-xs text-muted">
         Parsing happens entirely in your browser. Your collection is never uploaded or stored.
       </p>
