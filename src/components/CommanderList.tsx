@@ -274,7 +274,9 @@ function CommanderCard({ commander }: { commander: OwnedCommander }) {
       href={`/commander/${commander.slug}`}
       className="group flex flex-col overflow-hidden rounded-xl border border-border bg-surface text-left transition hover:border-accent/60"
     >
-      <div className="relative h-24 w-full bg-surface-2">
+      {/* Scryfall art crops are 626x457; letting the tile take that ratio shows
+          the whole crop rather than a thin slice of it. */}
+      <div className="relative aspect-[626/457] w-full bg-surface-2">
         {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
         {commander.art && (
           <Image
