@@ -1,15 +1,40 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type { LoadState } from "@/components/LoadingPanel";
-import { CsvShapeError, readRows, resolveCollection, type Collection } from "@/lib/collection";
+import {
+  CsvShapeError,
+  readRows,
+  resolveCollection,
+  type Collection,
+  type CollectionRows,
+} from "@/lib/collection";
 import { ownedFromCatalogue, type OwnedCommander } from "@/lib/edhrec";
 import { fetchJsonWithProgress, type Manifest } from "@/lib/load";
 import { matchPrecons, type DeckMatch } from "@/lib/match";
 import type { PriceIndex } from "@/lib/prices";
+import { forgetCollection, loadCollection, rowsFrom, saveCollection } from "@/lib/persist";
 import type { CardIndex, CommanderCatalogue, PreconIndex } from "@/lib/types";
 
+/**
+ * "unknown" until stored data has been looked for. Routes must wait rather than
+ * redirect, or every deep link flashes back to the upload screen.
+ */
+export type CollectionStatus = "unknown" | "empty" | "ready";
+
 type CollectionState = {
+  status: CollectionStatus;
+  /** When the stored collection was saved, if it came from storage. */
+  savedAt: number | null;
+  fileName: string | null;
   collection: Collection | null;
   index: CardIndex | null;
   precons: DeckMatch[] | null;
@@ -20,6 +45,8 @@ type CollectionState = {
   busy: boolean;
   handleFile: (file: File) => Promise<void>;
   reset: () => void;
+  /** Clear it from this device as well as from memory. */
+  forget: () => void;
   /** Prices are only needed on a deck page, so they load on demand. */
   ensurePrices: () => void;
 };
@@ -28,9 +55,9 @@ const Ctx = createContext<CollectionState | null>(null);
 
 /**
  * All collection state lives here rather than in a page, so it survives
- * navigation between the commander grid and a deck. Nothing is persisted: a
- * refresh drops it and the user is sent back to the upload screen, which keeps
- * the promise that the file never leaves the browser or gets stored.
+ * navigation between the commander grid and a deck, and is written to this
+ * device so it survives a refresh. It is never sent anywhere — that half of the
+ * promise the UI makes still holds, and `forget` erases it.
  */
 export function CollectionProvider({ children }: { children: ReactNode }) {
   const [collection, setCollection] = useState<Collection | null>(null);
@@ -42,6 +69,9 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [pricesRequested, setPricesRequested] = useState(false);
+  const [status, setStatus] = useState<CollectionStatus>("unknown");
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
 
   const reset = useCallback(() => {
     setCollection(null);
@@ -50,7 +80,15 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     setOwned(null);
     setLoad(null);
     setError(undefined);
+    setStatus("empty");
+    setSavedAt(null);
+    setFileName(null);
   }, []);
+
+  const forget = useCallback(() => {
+    forgetCollection();
+    reset();
+  }, [reset]);
 
   const ensurePrices = useCallback(() => {
     if (pricesRequested) return;
@@ -63,20 +101,13 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       });
   }, [pricesRequested]);
 
-  const handleFile = useCallback(async (file: File) => {
-    setBusy(true);
-    setError(undefined);
-    setPrecons(null);
-    setOwned(null);
-    setCollection(null);
-    setLoad({ fileName: file.name, received: 0, total: 0, label: "Reading your collection…" });
-
+  /**
+   * Download the index, resolve the rows against it and match. Shared by a
+   * fresh upload and by restoring what was stored, which differ only in where
+   * the rows came from.
+   */
+  const hydrate = useCallback(async (parsed: CollectionRows, name: string) => {
     try {
-      // Local and near-instant, so the card count is on screen before any
-      // network work starts.
-      const parsed = await readRows(file);
-      setLoad((l) => l && { ...l, cardsRead: parsed.totalCards, label: "Loading card database…" });
-
       const manifest = (await fetch("/data/manifest.json").then((r) => r.json())) as Manifest;
       const total = (manifest.files.cards?.bytes ?? 0) + (manifest.files.precons?.bytes ?? 0);
       setLoad((l) => l && { ...l, total });
@@ -109,11 +140,14 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
         r.json()
       )) as CommanderCatalogue;
       setOwned(ownedFromCatalogue(catalogue, cards, resolved));
+      setFileName(name);
+      setStatus("ready");
       setLoad(null);
     } catch (err) {
       setPrecons(null);
       setOwned(null);
       setCollection(null);
+      setStatus("empty");
       setError(
         err instanceof CsvShapeError
           ? err.message
@@ -125,8 +159,69 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const handleFile = useCallback(
+    async (file: File) => {
+      setBusy(true);
+      setError(undefined);
+      setPrecons(null);
+      setOwned(null);
+      setCollection(null);
+      setLoad({ fileName: file.name, received: 0, total: 0, label: "Reading your collection…" });
+
+      try {
+        // Local and near-instant, so the card count is on screen before any
+        // network work starts.
+        const parsed = await readRows(file);
+        setLoad((l) => l && { ...l, cardsRead: parsed.totalCards, label: "Loading card database…" });
+        saveCollection(file.name, parsed);
+        setSavedAt(Date.now());
+        await hydrate(parsed, file.name);
+      } catch (err) {
+        setStatus("empty");
+        setError(
+          err instanceof CsvShapeError
+            ? err.message
+            : `Couldn't read that file: ${err instanceof Error ? err.message : String(err)}`
+        );
+        setLoad(null);
+        setBusy(false);
+      }
+    },
+    [hydrate]
+  );
+
+  // Reading storage is exactly what an effect is for: pulling state in from an
+  // external system once, after mount, where localStorage actually exists.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const stored = loadCollection();
+      if (!stored) {
+        if (!cancelled) setStatus("empty");
+        return;
+      }
+      if (cancelled) return;
+      setBusy(true);
+      setSavedAt(stored.savedAt);
+      setLoad({
+        fileName: stored.fileName,
+        cardsRead: stored.totalCards,
+        received: 0,
+        total: 0,
+        label: "Restoring your collection…",
+      });
+      await hydrate(rowsFrom(stored), stored.fileName);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrate]);
+
   const value = useMemo(
     () => ({
+      status,
+      savedAt,
+      fileName,
       collection,
       index,
       precons,
@@ -137,9 +232,26 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       busy,
       handleFile,
       reset,
+      forget,
       ensurePrices,
     }),
-    [collection, index, precons, owned, prices, load, error, busy, handleFile, reset, ensurePrices]
+    [
+      status,
+      savedAt,
+      fileName,
+      collection,
+      index,
+      precons,
+      owned,
+      prices,
+      load,
+      error,
+      busy,
+      handleFile,
+      reset,
+      forget,
+      ensurePrices,
+    ]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

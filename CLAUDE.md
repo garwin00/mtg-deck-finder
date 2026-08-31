@@ -79,10 +79,10 @@ the UI, so keep it true.
 | `/precon/[id]` | The same view for a precon. |
 
 State lives in `CollectionProvider` (mounted in `layout.tsx`) so it survives
-navigation. **Nothing is persisted**, so a refresh or a shared link arrives with
-an empty collection — `useRequireCollection` sends those back to `/`. Do not fix
-that by caching the collection in browser storage without revisiting the promise
-the UI makes.
+navigation, and is written to `localStorage` so it survives a refresh. A link
+opened on someone else's device still has no collection —
+`useRequireCollection` sends those to `/`, but only once `status` leaves
+`"unknown"`, or every deep link bounces before storage has been read.
 
 ### Key files
 
@@ -92,6 +92,7 @@ the UI makes.
 | `src/lib/types.ts` | `CardRecord`, `Precon`, category enum + labels/order. |
 | `src/lib/normalise.ts` | Name normalisation. **Must stay identical to the copy in `build-data.mjs`** — the alias map is built with it. |
 | `src/lib/collection.ts` | `readRows` (CSV → raw names, no index needed) then `resolveCollection` (raw names → card indices). Kept separate so the card count shows while the index downloads. Also picks up an optional `Added` date, which powers the Newest sort. |
+| `src/lib/persist.ts` | localStorage round-trip for the collection, by name. |
 | `src/lib/load.ts` | Progress-reporting JSON fetch, measured against `manifest.json`. |
 | `src/lib/prices.ts` | GBP conversion, Cardmarket links, currency formatting. |
 | `src/lib/edhrec.ts` | Owned-commander list, deck variants per commander, and the on-demand average-deck fetch. The only place EDHREC decklists are touched. |
@@ -158,6 +159,15 @@ the UI makes.
 - **Prices are an estimate and must stay labelled as one.** One snapshot,
   cheapest printing, ignoring condition, seller and shipping — and EU sellers
   add ~20% import VAT into the UK.
+- **Stored collections keep names, never card indices.** `owned` is keyed by
+  position in `cards.json`, and positions are not stable across builds —
+  inserting one card renumbers everything after it, so a stored index map would
+  silently claim the wrong cards after a data refresh. Names are re-resolved on
+  load.
+- **Collections persist to this device only.** The UI promises "never uploaded",
+  not "never stored", and offers a Forget control plus the date it was saved,
+  because a stored collection goes stale as cards are bought. Accounts and
+  cross-device sync are a later conversation, not a quiet addition.
 - **The colour filter matches an exact identity, not a subset.** Picking B+G
   gives Golgari commanders only — not mono-black, mono-green or Jund. A subset
   match buried the combination being looked for under every simpler one that fit
@@ -184,7 +194,8 @@ the UI makes.
 
 - Committing anything from `collections/` — it is gitignored and holds real
   personal exports. Never un-ignore it, never paste its contents anywhere.
-- Uploading, POSTing or persisting collection data. It stays client-side.
+- Uploading or POSTing collection data anywhere. It stays on the user's device;
+  no server ever sees it.
 - Hardcoded Magic card lists as app logic (see above).
 - `any`, `@ts-expect-error`, or disabling ESLint rules to get a build through.
 - Adding a backend, database or auth for MVP scope.

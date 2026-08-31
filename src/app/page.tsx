@@ -10,7 +10,8 @@ import { useCollection } from "@/lib/collection-context";
 const THRESHOLDS = [0, 50, 70, 90];
 
 export default function Home() {
-  const { collection, precons, owned, load, error, busy, handleFile, reset } = useCollection();
+  const { collection, precons, owned, load, error, busy, savedAt, handleFile, reset, forget } =
+    useCollection();
   const [threshold, setThreshold] = useState(50);
   const [showPrecons, setShowPrecons] = useState(false);
 
@@ -27,13 +28,35 @@ export default function Home() {
           </p>
         </div>
         {collection && (
-          <button
-            type="button"
-            onClick={reset}
-            className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-sm text-muted hover:border-accent/60 hover:text-foreground"
-          >
-            Upload a different file
-          </button>
+          <div className="shrink-0 text-right">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={reset}
+                className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted hover:border-accent/60 hover:text-foreground"
+              >
+                Upload a different file
+              </button>
+              <button
+                type="button"
+                onClick={forget}
+                className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted hover:border-[#e07a6a]/60 hover:text-foreground"
+              >
+                Forget
+              </button>
+            </div>
+            {savedAt && (
+              // Stored collections go stale as cards are bought; saying when
+              // makes that visible rather than quietly wrong.
+              <p className="mt-1.5 text-xs text-muted">
+                Saved on this device{" "}
+                {new Date(savedAt).toLocaleDateString(undefined, {
+                  day: "numeric",
+                  month: "short",
+                })}
+              </p>
+            )}
+          </div>
         )}
       </header>
 

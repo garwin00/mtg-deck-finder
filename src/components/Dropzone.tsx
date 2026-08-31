@@ -53,7 +53,9 @@ export function Dropzone({ onFile, busy }: Props) {
         {busy ? "Working…" : "Choose a file"}
       </button>
       <p className="mt-6 text-xs text-muted">
-        Parsing happens entirely in your browser. Your collection is never uploaded or stored.
+        Parsing happens entirely in your browser and your collection is never uploaded — no server
+        ever sees it. It is saved on this device so it is still here next time, and you can erase
+        it whenever you like.
       </p>
     </div>
   );

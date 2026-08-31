@@ -29,7 +29,8 @@ node scripts/make-sample-collection.mjs collections/sample-manabox.csv
 ## How it works
 
 Everything after the initial data load happens in the browser — the collection
-file is never uploaded or persisted.
+file is never uploaded, and no server ever sees it. It is saved to that device
+so it survives a refresh, with a control to erase it.
 
 - `scripts/build-data.mjs` builds the static index in `public/data`:
   - **Cards** from Scryfall's `oracle_cards` bulk export. Only cards we might

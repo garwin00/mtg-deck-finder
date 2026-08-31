@@ -5,6 +5,7 @@ reviews don't flag them as mistakes.
 
 | Date | Change | Deviation | Rationale |
 | --- | --- | --- | --- |
+| 2026-08-31 | Collection persistence | Reversed the documented "nothing is persisted" rule and the "never stored" claim in the UI | Asked for explicitly. Collections now save to localStorage so a refresh or deep link keeps working. "Never uploaded" — the half that matters, since no server sees the data — still holds, and a Forget control plus a saved-on date were added so it can be erased and can't go quietly stale. Names are stored rather than card indices, because indices are renumbered by every data rebuild. |
 | 2026-08-31 | Mana curve | Kept the app's green/red for owned/missing despite `dataviz` validator FAIL on the dark-mode lightness band | They are the existing semantic colours on every card tile and row; recolouring the chart alone would break that consistency for a worse outcome. The checks that matter passed — CVD separation ΔE 10.8 (deutan, floor 8) and contrast — and the pair is status, not categorical, which is outside the band check's stated scope. Secondary encoding added as required: fixed stack order, legend and direct counts, so nothing reads by colour alone. |
 | 2026-08-31 | Project setup | `CLAUDE.md` written standalone rather than from the instil-concepts workspace template | Personal side project — deliberately isolated from company templates, Mission Control and SharePoint. |
 
