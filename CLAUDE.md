@@ -16,7 +16,8 @@ npm run dev          # next dev — http://localhost:3000
 npm run build        # next build (production build; run before committing)
 npm run lint         # eslint (flat config, eslint-config-next)
 npx tsc --noEmit     # type check — there is no `typecheck` script
-npm run build:data   # rebuild public/data from Scryfall + MTGJSON (network, ~1–2 min)
+npm run build:data       # rebuild the card index from Scryfall + MTGJSON (network, ~1 min)
+npm run build:commanders # rebuild the commander catalogue from EDHREC (32 requests)
 node scripts/make-sample-collection.mjs collections/sample-manabox.csv
 ```
 
@@ -51,6 +52,8 @@ Scryfall `is:gamechanger`, and emits two static JSON files into `public/data`:
 - `manifest.json` — uncompressed byte sizes, so the loading bar has a real total
   to measure against (`Content-Length` is the brotli size, the stream yields
   decompressed bytes).
+- `commanders.json` — EDHREC's ranked commanders: slug, card index, deck count.
+  Written by `build-commanders.mjs`. **No decklists.**
 
 Anything derived from oracle text (category, commander legality, Game Changer,
 basic-land flag) is computed **here**, so the browser never downloads oracle text.
@@ -71,6 +74,7 @@ the browser — that promise is made in the UI, so keep it true.
 | `src/lib/normalise.ts` | Name normalisation. **Must stay identical to the copy in `build-data.mjs`** — the alias map is built with it. |
 | `src/lib/collection.ts` | `readRows` (CSV → raw names, no index needed) then `resolveCollection` (raw names → card indices). Kept separate so the card count shows while the index downloads. |
 | `src/lib/load.ts` | Progress-reporting JSON fetch, measured against `manifest.json`. |
+| `src/lib/edhrec.ts` | Owned-commander list, and the on-demand average-deck fetch. The only place EDHREC decklists are touched. |
 | `src/lib/match.ts` | Completion scoring, bracket estimate, export formats. |
 | `src/components/` | Presentational only — no data fetching, no parsing. |
 | `src/app/page.tsx` | All state lives here and is passed down. |
@@ -91,8 +95,14 @@ the browser — that promise is made in the UI, so keep it true.
   `legalities.commander` + type line + "can be your commander"; the Game
   Changers list comes from Scryfall. If a change would mean a hand-maintained
   card list, flag it first.
-- MVP is **precon matching only**. EDHREC / freeform commander synergy is V2 and
-  must sit behind an adapter if it ever lands.
+- **Precons only match decks you already bought.** A real collection scores a
+  median 20% against them with the 50–89% band empty, because a precon is a
+  product you own or don't. Commander matching is where the discovery is.
+- **EDHREC decklists are never crawled in bulk or stored here.** The build only
+  fetches 32 colour-bucket listings for slugs and deck counts; the browser
+  fetches one average deck, from EDHREC directly, when the user opens a
+  commander. Their JSON is CORS-open and cacheable. Do not reintroduce a
+  decklist corpus without deciding the redistribution question first.
 
 ## Conventions
 

@@ -4,13 +4,15 @@ Upload a Magic: The Gathering collection export and see which official Commander
 preconstructed decks you are closest to already owning — ranked by completion,
 with a missing-cards shopping list and an estimated Commander Bracket.
 
-MVP scope: precon matching only. Freeform commander synergy scoring is V2.
+Two ways in: official precons scored automatically, and any commander in your
+collection scored on demand against its EDHREC average deck.
 
 ## Running it
 
 ```bash
 npm install
-npm run build:data   # only needed if public/data is missing or stale
+npm run build:data       # only needed if public/data is missing or stale
+npm run build:commanders # commander catalogue (slugs + deck counts)
 npm run dev
 ```
 
@@ -38,6 +40,9 @@ file is never uploaded or persisted.
     duplicates.
   - **Game Changers** from Scryfall's `is:gamechanger` search, so the list stays
     correct when WotC revises it rather than being hardcoded here.
+- `scripts/build-commanders.mjs` builds `public/data/commanders.json` — the
+  commanders EDHREC ranks, with their exact average-deck slug and deck count.
+  It fetches 32 colour-bucket listings and no decklists at all.
 - `src/lib/collection.ts` stream-parses the CSV in a worker (PapaParse) and
   aggregates every printing and finish of a card into one owned quantity.
 - `src/lib/match.ts` scores each precon and estimates a bracket floor.
@@ -61,9 +66,15 @@ file is never uploaded or persisted.
   coarse: a creature stays a creature unless it is obviously mana ramp.
 - **Bracket estimates count Game Changers only.** WotC also weighs two-card
   combos, mass land denial, tutors and extra turns; those are V2.
+- **EDHREC decklists are fetched by the browser, one at a time, when you open a
+  commander.** Nothing of theirs is crawled in bulk or served from here. A
+  precon-only tool mostly rediscovers precons you already bought — a real
+  collection scores a median 20% with nothing in the 50–89% band — so the
+  commander list is where the useful answers are.
 
 ## Data sources
 
-Card data from [Scryfall](https://scryfall.com), decklists from
-[MTGJSON](https://mtgjson.com). Not affiliated with or endorsed by Wizards of
-the Coast.
+Card data from [Scryfall](https://scryfall.com), precon decklists from
+[MTGJSON](https://mtgjson.com), commander average decks from
+[EDHREC](https://edhrec.com). Not affiliated with or endorsed by Wizards of the
+Coast.

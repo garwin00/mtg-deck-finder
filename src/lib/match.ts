@@ -1,6 +1,35 @@
 import type { CardIndex, CardRecord, Category, Precon, PreconIndex } from "./types";
 import type { Collection } from "./collection";
 
+/**
+ * A deck to score a collection against, whatever produced it. Precons and
+ * EDHREC average decks differ only in where they came from and what they are
+ * called, so they share one matcher.
+ */
+export type DeckSource = {
+  id: string;
+  name: string;
+  /** Provenance line, e.g. "C21 · 2021" or "43,948 decks on EDHREC". */
+  subtitle: string;
+  kind: "precon" | "commander";
+  commanders: number[];
+  basics: number;
+  cards: [number, number][];
+};
+
+export function preconSource(deck: Precon): DeckSource {
+  return {
+    id: deck.id,
+    name: deck.name,
+    subtitle: `${deck.code} · ${deck.release}`,
+    kind: "precon",
+    commanders: deck.commanders,
+    basics: deck.basics,
+    cards: deck.cards,
+  };
+}
+
+
 export type DeckEntry = {
   card: CardRecord;
   cardIndex: number;
@@ -18,7 +47,7 @@ export type Bracket = {
 };
 
 export type DeckMatch = {
-  deck: Precon;
+  deck: DeckSource;
   entries: DeckEntry[];
   commanders: CardRecord[];
   /** Colour identity across the deck's commanders, e.g. "BU". */
@@ -30,16 +59,25 @@ export type DeckMatch = {
   bracket: Bracket;
 };
 
-/**
- * Score every precon against the collection. Basic lands are excluded from both
- * sides at build time, so a collection's bulk basics can't inflate a match.
- */
+/** Score every official precon against the collection. */
 export function matchPrecons(
   precons: PreconIndex,
   index: CardIndex,
   collection: Collection
 ): DeckMatch[] {
-  const matches = precons.decks.map((deck) => {
+  return matchDecks(precons.decks.map(preconSource), index, collection);
+}
+
+/**
+ * Score decks against the collection. Basic lands are excluded from both sides
+ * at build time, so a collection's bulk basics can't inflate a match.
+ */
+export function matchDecks(
+  decks: DeckSource[],
+  index: CardIndex,
+  collection: Collection
+): DeckMatch[] {
+  const matches = decks.map((deck) => {
     const entries: DeckEntry[] = deck.cards.map(([cardIndex, needed]) => {
       const card = index.cards[cardIndex];
       const have = Math.min(collection.owned.get(cardIndex) ?? 0, needed);

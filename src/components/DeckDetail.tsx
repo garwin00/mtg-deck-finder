@@ -62,7 +62,7 @@ export function DeckDetail({ match, onClose }: { match: DeckMatch; onClose: () =
           <div className="flex-1">
             <h2 className="text-xl font-semibold">{match.deck.name}</h2>
             <p className="text-sm text-muted">
-              {match.deck.code} · {match.deck.release} ·{" "}
+              {match.deck.subtitle} ·{" "}
               {match.commanders.map((c) => c.n).join(" & ") || "No listed commander"}
             </p>
             <div className="mt-2 flex items-center gap-3 text-xs text-muted">

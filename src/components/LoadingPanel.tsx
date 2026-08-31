@@ -7,6 +7,8 @@ export type LoadState = {
   received: number;
   total: number;
   label: string;
+  /** Set instead of bytes when the stage is many small files. */
+  count?: { done: number; total: number };
 };
 
 const mb = (bytes: number) => `${(bytes / 1e6).toFixed(1)} MB`;
@@ -17,7 +19,14 @@ const mb = (bytes: number) => `${(bytes / 1e6).toFixed(1)} MB`;
  * bar only covers the download behind it.
  */
 export function LoadingPanel({ state }: { state: LoadState }) {
-  const percent = state.total > 0 ? Math.min((state.received / state.total) * 100, 100) : 0;
+  const percent = state.count
+    ? state.count.total > 0
+      ? (state.count.done / state.count.total) * 100
+      : 0
+    : state.total > 0
+      ? Math.min((state.received / state.total) * 100, 100)
+      : 0;
+  const measured = state.count ? state.count.total > 0 : state.total > 0;
 
   return (
     <div className="rounded-xl border border-border bg-surface p-6">
@@ -41,7 +50,7 @@ export function LoadingPanel({ state }: { state: LoadState }) {
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={state.total > 0 ? Math.round(percent) : undefined}
+        aria-valuenow={measured ? Math.round(percent) : undefined}
         aria-label={state.label}
       >
         <div
@@ -52,9 +61,11 @@ export function LoadingPanel({ state }: { state: LoadState }) {
 
       <div className="mt-2 flex items-center justify-between text-xs text-muted">
         <span>{state.label}</span>
-        {state.total > 0 && (
+        {measured && (
           <span className="tabular-nums">
-            {mb(Math.min(state.received, state.total))} / {mb(state.total)}
+            {state.count
+              ? `${state.count.done} / ${state.count.total} decks`
+              : `${mb(Math.min(state.received, state.total))} / ${mb(state.total)}`}
           </span>
         )}
       </div>

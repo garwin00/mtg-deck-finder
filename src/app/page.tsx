@@ -6,9 +6,11 @@ import { DeckCard } from "@/components/DeckCard";
 import { DeckDetail } from "@/components/DeckDetail";
 import { LoadingPanel, type LoadState } from "@/components/LoadingPanel";
 import { CsvShapeError, readRows, resolveCollection, type Collection } from "@/lib/collection";
+import { CommanderList } from "@/components/CommanderList";
+import { fetchAverageDeck, ownedFromCatalogue, type OwnedCommander } from "@/lib/edhrec";
 import { fetchJsonWithProgress, type Manifest } from "@/lib/load";
-import { matchPrecons, ownedCommanders, type DeckMatch } from "@/lib/match";
-import type { CardIndex, PreconIndex } from "@/lib/types";
+import { matchDecks, matchPrecons, ownedCommanders, type DeckMatch } from "@/lib/match";
+import type { CardIndex, CommanderCatalogue, PreconIndex } from "@/lib/types";
 
 const THRESHOLDS = [0, 50, 70, 90];
 
@@ -16,6 +18,8 @@ export default function Home() {
   const [collection, setCollection] = useState<Collection | null>(null);
   const [index, setIndex] = useState<CardIndex | null>(null);
   const [matches, setMatches] = useState<DeckMatch[] | null>(null);
+  const [owned, setOwned] = useState<OwnedCommander[] | null>(null);
+  const [opening, setOpening] = useState<string>();
   const [threshold, setThreshold] = useState(50);
   const [selected, setSelected] = useState<DeckMatch | null>(null);
   const [load, setLoad] = useState<LoadState | null>(null);
@@ -27,6 +31,7 @@ export default function Home() {
     setError(undefined);
     setSelected(null);
     setMatches(null);
+    setOwned(null);
     setCollection(null);
     setLoad({ fileName: file.name, received: 0, total: 0, label: "Reading your collection…" });
 
@@ -62,9 +67,18 @@ export default function Home() {
       setIndex(cards);
       setCollection(resolved);
       setMatches(matchPrecons(precons, cards, resolved));
+
+      // Precon results are on screen from here. The catalogue is just slugs and
+      // deck counts — decklists come from EDHREC only when one is opened.
+      setLoad((l) => l && { ...l, label: "Loading commander list…" });
+      const catalogue = (await fetch("/data/commanders.json").then((r) =>
+        r.json()
+      )) as CommanderCatalogue;
+      setOwned(ownedFromCatalogue(catalogue, cards, resolved));
       setLoad(null);
     } catch (err) {
       setMatches(null);
+      setOwned(null);
       setCollection(null);
       setError(
         err instanceof CsvShapeError
@@ -74,6 +88,22 @@ export default function Home() {
       setLoad(null);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleOpenCommander = async (commander: OwnedCommander) => {
+    if (!index || !collection) return;
+    setOpening(commander.slug);
+    setError(undefined);
+    try {
+      const source = await fetchAverageDeck(commander, index);
+      setSelected(matchDecks([source], index, collection)[0]);
+    } catch (err) {
+      setError(
+        `Couldn't load ${commander.name} from EDHREC: ${err instanceof Error ? err.message : String(err)}`
+      );
+    } finally {
+      setOpening(undefined);
     }
   };
 
@@ -141,6 +171,7 @@ export default function Home() {
               type="button"
               onClick={() => {
                 setMatches(null);
+                setOwned(null);
                 setCollection(null);
                 setIndex(null);
               }}
@@ -150,16 +181,19 @@ export default function Home() {
             </button>
           </div>
 
-          <section className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {visible.map((match) => (
-              <DeckCard key={match.deck.id} match={match} onOpen={() => setSelected(match)} />
-            ))}
-          </section>
+          <DeckSection
+            title="Precons"
+            matches={visible}
+            empty={`No precon reaches ${threshold}% with this collection.`}
+            onOpen={setSelected}
+          />
 
-          {visible.length === 0 && (
-            <p className="mt-6 text-sm text-muted">
-              No precon reaches {threshold}% with this collection. Try a lower threshold.
-            </p>
+          {owned && (
+            <CommanderList
+              commanders={owned}
+              opening={opening}
+              onSelect={handleOpenCommander}
+            />
           )}
 
           <footer className="mt-10 space-y-1 text-xs text-muted">
@@ -180,6 +214,36 @@ export default function Home() {
 
       {selected && <DeckDetail match={selected} onClose={() => setSelected(null)} />}
     </main>
+  );
+}
+
+function DeckSection({
+  title,
+  matches,
+  empty,
+  onOpen,
+}: {
+  title: string;
+  matches: DeckMatch[];
+  empty: string;
+  onOpen: (match: DeckMatch) => void;
+}) {
+  return (
+    <section className="mt-8">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{title}</h2>
+        <span className="text-xs text-muted">{matches.length}</span>
+      </div>
+      {matches.length === 0 ? (
+        <p className="mt-3 text-sm text-muted">{empty}</p>
+      ) : (
+        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {matches.map((match) => (
+            <DeckCard key={`${match.deck.kind}:${match.deck.id}`} match={match} onOpen={() => onOpen(match)} />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

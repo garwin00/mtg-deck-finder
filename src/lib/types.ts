@@ -53,6 +53,16 @@ export type Precon = {
   cards: [number, number][];
 };
 
+/**
+ * Commanders EDHREC ranks: slug, the card index it resolves to, and how many
+ * decks exist for it. Decklists are not included — the browser fetches one
+ * from EDHREC when the user opens it.
+ */
+export type CommanderCatalogue = {
+  generatedAt: string;
+  decks: { s: string; c: number; n: number }[];
+};
+
 export type PreconIndex = {
   generatedAt: string;
   gameChangerCount: number;
