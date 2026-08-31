@@ -119,8 +119,9 @@ async function main() {
   const precons = await fetchPrecons();
   const gameChangers = await fetchGameChangers();
 
-  // Names we need card facts for: everything in a precon, every Game Changer,
-  // plus every legal commander (added unconditionally further down).
+  // Cards that must be kept even though they aren't Commander-legal: precon
+  // contents (precons ship cards that were later banned, e.g. Mana Crypt) and
+  // the Game Changers list. Everything Commander-legal is kept regardless.
   const wanted = new Set();
   for (const deck of precons) {
     for (const e of deck.entries) for (const k of aliasKeys(e.name)) wanted.add(k);
@@ -151,13 +152,18 @@ async function main() {
     return index;
   };
 
+  // Keep the whole Commander-legal card pool, not just what precons use. Any
+  // deck source we match against (precons now, EDHREC average decks next) draws
+  // from the full pool, and a card missing from the index silently drops out of
+  // both sides of a completion percentage rather than failing loudly.
   let seen = 0;
   const pool = [];
   for await (const c of streamOracleCards()) {
     seen++;
     if (!isPlayable(c)) continue;
     const commander = isCommanderCandidate(c);
-    const needed = commander || aliasKeys(c.name).some((k) => wanted.has(k));
+    const legal = c.legalities?.commander === "legal";
+    const needed = legal || commander || aliasKeys(c.name).some((k) => wanted.has(k));
     if (needed) pool.push({ card: c, commander });
   }
 
@@ -169,7 +175,11 @@ async function main() {
   ];
   let shadowed = 0;
   for (const { card, commander } of ordered) {
-    if (aliasKeys(card.name).some((k) => byAlias.has(k))) {
+    // Drop only a true duplicate — every key already claimed. A card that
+    // merely shares one face name with an older card keeps its other keys:
+    // "Spellbook Seeker // Careful Study" must not vanish because "Careful
+    // Study" has existed since Odyssey. addCard never steals a claimed key.
+    if (aliasKeys(card.name).every((k) => byAlias.has(k))) {
       shadowed++;
       continue;
     }
