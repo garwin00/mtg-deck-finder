@@ -114,5 +114,9 @@ forbids paywalling their data.
 - **No tests.** The matching logic and the name-resolution edge cases —
   double-faced cards, the ten name collisions, banned cards — are exactly what
   a public tool cannot afford to regress, and there is no runner installed.
+- **Bulk buying assumes Cardmarket.** The button copies a wants list and opens
+  their site, which is right for a UK or EU buyer and wrong elsewhere.
+  TCGplayer's `massentry?productline=Magic&c=…` deep link is the US equivalent
+  and works; a public release would want to offer both.
 - **Prices carry a UK-specific caveat.** "EU sellers add around 20% import VAT"
   is wrong for a visitor outside the UK, and the whole figure is GBP-only.

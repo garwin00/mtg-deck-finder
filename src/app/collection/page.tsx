@@ -8,10 +8,12 @@ import { formatGbp, gbpPrice } from "@/lib/prices";
 export default function CollectionPage() {
   const state = useRequireCollection();
   const ensurePrices = state?.ensurePrices;
+  const ensurePrintings = state?.ensurePrintings;
 
   useEffect(() => {
     ensurePrices?.();
-  }, [ensurePrices]);
+    ensurePrintings?.();
+  }, [ensurePrices, ensurePrintings]);
 
   const summary = useMemo(() => {
     if (!state?.collection || !state.index) return null;

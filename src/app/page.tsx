@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CommanderList } from "@/components/CommanderList";
 import { DeckCard } from "@/components/DeckCard";
 import { Dropzone } from "@/components/Dropzone";
@@ -21,10 +21,17 @@ export default function Home() {
     completion,
     scoring,
     scoreCommanders,
+    printings,
     handleFile,
     reset,
     forget,
+    ensurePrintings,
   } = useCollection();
+
+  // Only once there is something to hover; this never delays the upload path.
+  useEffect(() => {
+    if (collection) ensurePrintings();
+  }, [collection, ensurePrintings]);
   const [threshold, setThreshold] = useState(50);
   const [showPrecons, setShowPrecons] = useState(false);
 
@@ -88,6 +95,7 @@ export default function Home() {
           {owned && (
             <CommanderList
               commanders={owned}
+              printings={printings}
               completion={completion}
               scoring={scoring}
               onScore={scoreCommanders}

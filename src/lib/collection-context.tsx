@@ -66,8 +66,9 @@ export type CollectionState = {
   reset: () => void;
   /** Clear it from this device as well as from memory. */
   forget: () => void;
-  /** Prices and printings are only needed once cards are shown, so they load on demand. */
+  /** Both load on demand: printings whenever cards are shown, prices on a deck page. */
   ensurePrices: () => void;
+  ensurePrintings: () => void;
 };
 
 const Ctx = createContext<CollectionState | null>(null);
@@ -89,6 +90,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [pricesRequested, setPricesRequested] = useState(false);
+  const [printingsRequested, setPrintingsRequested] = useState(false);
   const [completion, setCompletion] = useState<Map<string, number>>(new Map());
   const [scoring, setScoring] = useState<{ done: number; total: number } | null>(null);
   /** Identifies which collection and card index the cached scores belong to. */
@@ -174,13 +176,18 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         // Prices are an extra; a decklist still works without them.
       });
+  }, [pricesRequested]);
+
+  const ensurePrintings = useCallback(() => {
+    if (printingsRequested) return;
+    setPrintingsRequested(true);
     fetch("/data/printings.json")
       .then((r) => (r.ok ? (r.json() as Promise<PrintingIndex>) : null))
       .then((loaded) => loaded && setPrintings(loaded))
       .catch(() => {
         // Without printings, cards render as their names.
       });
-  }, [pricesRequested]);
+  }, [printingsRequested]);
 
   /**
    * Download the index, resolve the rows against it and match. Shared by a
@@ -326,6 +333,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       reset,
       forget,
       ensurePrices,
+      ensurePrintings,
     }),
     [
       completion,
@@ -347,6 +355,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       reset,
       forget,
       ensurePrices,
+      ensurePrintings,
     ]
   );
 

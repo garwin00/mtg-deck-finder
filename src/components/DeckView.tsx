@@ -11,6 +11,7 @@ import { cardmarketUrl, formatGbp, gbpPrice, type PriceIndex } from "@/lib/price
 import { cardImageUrl, setCodeOf, setIconUrl, type PrintingIndex } from "@/lib/printings";
 import { CATEGORY_LABELS, CATEGORY_ORDER, type Category } from "@/lib/types";
 import { ColourPips } from "./ColourPips";
+import { HoverCard } from "./HoverCard";
 import { ManaCurve } from "./ManaCurve";
 import { CompletionRing } from "./CompletionRing";
 
@@ -34,6 +35,7 @@ type Props = {
  */
 export function DeckView({ match, index, prices, printings, stats, backHref, backLabel }: Props) {
   const [copied, setCopied] = useState(false);
+  const [handedOff, setHandedOff] = useState(false);
 
   // The commander leads, the way a decklist writeup does.
   const { commanderEntries, grouped } = useMemo(() => {
@@ -95,6 +97,23 @@ export function DeckView({ match, index, prices, printings, stats, backHref, bac
     await navigator.clipboard.writeText(missingAsText(match));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  /**
+   * Cardmarket has no URL that accepts a list, but its wants list reads exactly
+   * the `<count> <name>` lines we already produce. So copy, then open the page
+   * for the user to paste — which keeps the retailer the same as the one the
+   * prices come from.
+   */
+  const buyAll = async () => {
+    try {
+      await navigator.clipboard.writeText(missingAsText(match));
+      setHandedOff(true);
+      setTimeout(() => setHandedOff(false), 8000);
+    } catch {
+      // Opening the page is still useful without the clipboard.
+    }
+    window.open("https://www.cardmarket.com/en/Magic/Wants", "_blank", "noopener,noreferrer");
   };
 
   const downloadCsv = () => {
@@ -188,7 +207,20 @@ export function DeckView({ match, index, prices, printings, stats, backHref, bac
               </p>
             ) : (
               <>
-                <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={buyAll}
+                  className="mt-3 w-full rounded-md bg-accent px-3 py-2 text-sm font-semibold text-[#241c05] hover:opacity-90"
+                >
+                  Buy all {missingCount} on Cardmarket
+                </button>
+                {handedOff && (
+                  <p className="mt-2 text-xs text-[#7bd88f]">
+                    List copied — paste it into the wants field on the tab that just opened.
+                  </p>
+                )}
+
+                <div className="mt-2 flex gap-2">
                   <button
                     type="button"
                     onClick={copyMissing}
@@ -216,8 +248,16 @@ export function DeckView({ match, index, prices, printings, stats, backHref, bac
                       const each = prices ? gbpPrice(prices, entry.cardIndex) : undefined;
                       const url = prices ? cardmarketUrl(prices, entry.cardIndex) : undefined;
                       const copies = entry.needed - entry.have;
+                      const preview = printings
+                        ? cardImageUrl(printings, entry.cardIndex)
+                        : undefined;
                       return (
-                        <li key={entry.cardIndex} className="flex items-center gap-2 px-3 py-2 text-sm">
+                        <li key={entry.cardIndex}>
+                          <HoverCard
+                            image={preview}
+                            name={entry.card.n}
+                            className="flex items-center gap-2 px-3 py-2 text-sm"
+                          >
                           <span className="w-6 shrink-0 text-xs text-muted">{copies}×</span>
                           <span className="min-w-0 flex-1 truncate">
                             {url ? (
@@ -236,6 +276,7 @@ export function DeckView({ match, index, prices, printings, stats, backHref, bac
                           <span className="shrink-0 text-xs tabular-nums text-muted">
                             {each === undefined ? "—" : formatGbp(each * copies)}
                           </span>
+                          </HoverCard>
                         </li>
                       );
                     })}
@@ -423,11 +464,18 @@ function CardTile({
     </>
   );
 
-  if (owned || !url) return <div>{tile}</div>;
+  const wrapped =
+    owned || !url ? (
+      <div>{tile}</div>
+    ) : (
+      <a href={url} target="_blank" rel="noopener noreferrer" className="block hover:opacity-90">
+        {tile}
+      </a>
+    );
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="block hover:opacity-90">
-      {tile}
-    </a>
+    <HoverCard image={image} name={entry.card.n}>
+      {wrapped}
+    </HoverCard>
   );
 }
 

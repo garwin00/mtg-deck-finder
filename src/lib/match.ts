@@ -137,9 +137,16 @@ export function ownedCommanders(index: CardIndex, collection: Collection): CardR
   return cards.sort((a, b) => a.n.localeCompare(b.n));
 }
 
-/** A missing-cards list in TCGplayer / Moxfield mass-entry shape. */
+/**
+ * A missing-cards list a retailer will accept: one line of `<count> <name>`,
+ * which is what Cardmarket's wants list, TCGplayer's mass entry and Moxfield all
+ * read. Double-faced cards use the front face, since retailers catalogue them
+ * that way rather than under the composite name.
+ */
 export function missingAsText(match: DeckMatch): string {
-  return match.missing.map((e) => `${e.needed - e.have} ${e.card.n}`).join("\n");
+  return match.missing
+    .map((e) => `${e.needed - e.have} ${e.card.n.split("//")[0].trim()}`)
+    .join("\n");
 }
 
 export function missingAsCsv(match: DeckMatch): string {

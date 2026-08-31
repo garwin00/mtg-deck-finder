@@ -8,10 +8,12 @@ export default function PreconPage({ params }: { params: Promise<{ id: string }>
   const { id } = use(params);
   const state = useRequireCollection();
   const ensurePrices = state?.ensurePrices;
+  const ensurePrintings = state?.ensurePrintings;
 
   useEffect(() => {
     ensurePrices?.();
-  }, [ensurePrices]);
+    ensurePrintings?.();
+  }, [ensurePrices, ensurePrintings]);
 
   if (!state) return null;
   const match = state.precons?.find((m) => m.deck.id === decodeURIComponent(id));

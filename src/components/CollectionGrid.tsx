@@ -7,6 +7,7 @@ import { cardImageUrl, setCodeOf, setIconUrl, type PrintingIndex } from "@/lib/p
 import { cardmarketUrl, formatGbp, gbpPrice, type PriceIndex } from "@/lib/prices";
 import type { CardIndex, CardRecord } from "@/lib/types";
 import { ColourPips } from "./ColourPips";
+import { HoverCard } from "./HoverCard";
 
 /** A page at a time: 2,555 cards is a lot of image elements to mount at once. */
 const PAGE_SIZE = 60;
@@ -326,10 +327,16 @@ function CollectionCard({
     </>
   );
 
-  if (!url) return <div>{body}</div>;
-  return (
+  const wrapped = url ? (
     <a href={url} target="_blank" rel="noopener noreferrer" className="block hover:opacity-90">
       {body}
     </a>
+  ) : (
+    <div>{body}</div>
+  );
+  return (
+    <HoverCard image={image} name={row.card.n}>
+      {wrapped}
+    </HoverCard>
   );
 }

@@ -27,10 +27,12 @@ export default function CommanderDeckPage({
   const index = state?.index;
   const collection = state?.collection;
   const ensurePrices = state?.ensurePrices;
+  const ensurePrintings = state?.ensurePrintings;
 
   useEffect(() => {
     ensurePrices?.();
-  }, [ensurePrices]);
+    ensurePrintings?.();
+  }, [ensurePrices, ensurePrintings]);
 
   useEffect(() => {
     if (!commander || !index || !collection) return;

@@ -4,10 +4,13 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { OwnedCommander } from "@/lib/edhrec";
+import { cardImageUrl, type PrintingIndex } from "@/lib/printings";
 import { ColourPips } from "./ColourPips";
+import { HoverCard } from "./HoverCard";
 
 type Props = {
   commanders: OwnedCommander[];
+  printings: PrintingIndex | null;
   /** Slug -> completion, filled in as scoring progresses. */
   completion: Map<string, number>;
   scoring: { done: number; total: number } | null;
@@ -39,7 +42,7 @@ const PIP_STYLES: Record<string, string> = {
  * EDHREC and scores them — decklists are never held locally, so this is the
  * only route to them.
  */
-export function CommanderList({ commanders, completion, scoring, onScore }: Props) {
+export function CommanderList({ commanders, printings, completion, scoring, onScore }: Props) {
   const [query, setQuery] = useState("");
   const [colours, setColours] = useState<Set<string>>(new Set());
   const [type, setType] = useState("");
@@ -280,6 +283,7 @@ export function CommanderList({ commanders, completion, scoring, onScore }: Prop
               key={commander.slug}
               commander={commander}
               percent={completion.get(commander.slug)}
+              image={printings ? cardImageUrl(printings, commander.cardIndex) : undefined}
             />
           ))}
         </div>
@@ -301,15 +305,20 @@ export function CommanderList({ commanders, completion, scoring, onScore }: Prop
 function CommanderCard({
   commander,
   percent,
+  image,
 }: {
   commander: OwnedCommander;
   percent?: number;
+  image?: string;
 }) {
   return (
-    <Link
-      href={`/commander/${commander.slug}`}
-      className="group flex flex-col overflow-hidden rounded-xl border border-border bg-surface text-left transition hover:border-accent/60"
-    >
+    // Hovering shows the whole card, which also satisfies Scryfall's rule that
+    // an art crop be accompanied by the full card or an artist credit.
+    <HoverCard image={image} name={commander.name}>
+      <Link
+        href={`/commander/${commander.slug}`}
+        className="group flex flex-col overflow-hidden rounded-xl border border-border bg-surface text-left transition hover:border-accent/60"
+      >
       {/* Scryfall art crops are 626x457; letting the tile take that ratio shows
           the whole crop rather than a thin slice of it. */}
       <div className="relative aspect-[626/457] w-full bg-surface-2">
@@ -347,6 +356,7 @@ function CommanderCard({
           )}
         </div>
       </div>
-    </Link>
+      </Link>
+    </HoverCard>
   );
 }

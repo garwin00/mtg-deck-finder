@@ -103,6 +103,7 @@ opened on someone else's device still has no collection —
 | `src/lib/images.ts` | Card images from Scryfall's `/cards/collection` (75 names per POST, CORS-open) — which is why no image URLs are stored in the index. |
 | `src/components/CollectionGrid.tsx` | Owned cards, filtered and paged. Pages at 60 so each page is one Scryfall image request rather than 35 up front. |
 | `src/components/DeckView.tsx` | A deck as card images, owned in colour and missing dimmed. |
+| `src/components/HoverCard.tsx` | Full-card preview at the cursor. Portals to body so scroll containers can't clip it. |
 | `src/components/ManaCurve.tsx` | Mana curve, split owned/missing. Lands excluded, as a curve conventionally is. |
 
 **Going public is not the current scope**, but the constraints it would impose
@@ -179,6 +180,13 @@ collection. Read it before changing how images are fetched or displayed.
   Scryfall marks them commander-legal because legality belongs to the card
   rather than the printing, and they are often the cheapest listing, so quoting
   one sends the user to buy a card no playgroup accepts.
+- **Bulk buying is copy-then-open, not a deep link.** Cardmarket has no URL that
+  accepts a card list, but its wants list reads the `<count> <name>` lines
+  `missingAsText` produces, so the button copies and opens the page. TCGplayer
+  *does* accept `massentry?productline=Magic&c=…`, and was not used: it is US,
+  in dollars, and would quote different prices from the ones shown. Retailer
+  lists use front-face names, since that is how double-faced cards are
+  catalogued.
 - **Prices are an estimate and must stay labelled as one.** One snapshot,
   cheapest printing, ignoring condition, seller and shipping — and EU sellers
   add ~20% import VAT into the UK.
