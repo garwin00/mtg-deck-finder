@@ -157,7 +157,10 @@ opened on someone else's device still has no collection —
   against it gives the average completion for one request rather than one per
   theme. It is still a request per owned commander — 188 and about 13s on the
   test collection — so it starts when the user picks the Completion sort, never
-  on load. Unscored commanders sort last rather than as zero.
+  on load. Unscored commanders sort last rather than as zero. Results are cached
+  under `fingerprint(collection, cards.generatedAt)`, so buying a card or a
+  weekly data rebuild misses the cache and rescores; the fingerprint is sorted,
+  so a reordered export still hits.
 - **A commander is not one deck.** EDHREC publishes an average deck per theme at
   `/average-decks/<commander>/<theme>`, so opening a commander scores the
   average plus its top themes. Every variant is scored before the list renders —

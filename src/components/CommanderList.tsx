@@ -288,7 +288,8 @@ export function CommanderList({ commanders, completion, scoring, onScore }: Prop
       <p className="mt-3 text-xs text-muted">
         Colour filters match an exact identity, so picking two colours excludes the mono-coloured
         commanders that would fit inside it. Sorting by completion scores each commander against
-        its EDHREC average deck, which is one request per commander. Decklists are fetched from EDHREC when you open a
+        its EDHREC average deck — one request each, then cached on this device
+        until your collection changes. Decklists are fetched from EDHREC when you open a
         commander, not stored here. Themes are
         EDHREC&apos;s leading commanders per theme rather than an exhaustive tagging, so a filter
         shows the best-known commanders for it rather than every one you own.

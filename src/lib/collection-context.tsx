@@ -21,7 +21,16 @@ import { fetchAverageDeck, ownedFromCatalogue, type OwnedCommander } from "@/lib
 import { fetchJsonWithProgress, type Manifest } from "@/lib/load";
 import { matchDecks, matchPrecons, type DeckMatch } from "@/lib/match";
 import type { PriceIndex } from "@/lib/prices";
-import { forgetCollection, loadCollection, rowsFrom, saveCollection } from "@/lib/persist";
+import {
+  fingerprint,
+  forgetCollection,
+  forgetScores,
+  loadCollection,
+  loadScores,
+  rowsFrom,
+  saveCollection,
+  saveScores,
+} from "@/lib/persist";
 import type { CardIndex, CommanderCatalogue, PreconIndex } from "@/lib/types";
 
 /**
@@ -79,6 +88,8 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
   const [pricesRequested, setPricesRequested] = useState(false);
   const [completion, setCompletion] = useState<Map<string, number>>(new Map());
   const [scoring, setScoring] = useState<{ done: number; total: number } | null>(null);
+  /** Identifies which collection and card index the cached scores belong to. */
+  const [scoreKey, setScoreKey] = useState<string | null>(null);
   const [status, setStatus] = useState<CollectionStatus>("unknown");
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -95,10 +106,12 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     setFileName(null);
     setCompletion(new Map());
     setScoring(null);
+    setScoreKey(null);
   }, []);
 
   const forget = useCallback(() => {
     forgetCollection();
+    forgetScores();
     reset();
   }, [reset]);
 
@@ -140,10 +153,14 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     };
 
     Promise.all(Array.from({ length: 6 }, worker)).then(() => {
-      setCompletion((current) => new Map([...current, ...found]));
+      setCompletion((current) => {
+        const merged = new Map([...current, ...found]);
+        if (scoreKey) saveScores(scoreKey, merged);
+        return merged;
+      });
       setScoring(null);
     });
-  }, [owned, index, collection, completion, scoring]);
+  }, [owned, index, collection, completion, scoring, scoreKey]);
 
   const ensurePrices = useCallback(() => {
     if (pricesRequested) return;
@@ -195,6 +212,13 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
         r.json()
       )) as CommanderCatalogue;
       setOwned(ownedFromCatalogue(catalogue, cards, resolved));
+
+      // Scores are cached against the collection and the card index together,
+      // so adding cards or a weekly rebuild misses the cache and recomputes.
+      const key = fingerprint(parsed, cards.generatedAt);
+      setScoreKey(key);
+      setCompletion(loadScores(key) ?? new Map());
+
       setFileName(name);
       setStatus("ready");
       setLoad(null);
