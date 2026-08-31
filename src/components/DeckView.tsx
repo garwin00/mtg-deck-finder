@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { CardStat } from "@/lib/edhrec";
@@ -8,13 +8,11 @@ import type { CardIndex } from "@/lib/types";
 import type { DeckEntry, DeckMatch } from "@/lib/match";
 import { missingAsCsv, missingAsText } from "@/lib/match";
 import { cardmarketUrl, formatGbp, gbpPrice, type PriceIndex } from "@/lib/prices";
-import { fetchCardDetails, setIconUrl, type CardDetail } from "@/lib/images";
+import { cardImageUrl, setCodeOf, setIconUrl, type PrintingIndex } from "@/lib/printings";
 import { CATEGORY_LABELS, CATEGORY_ORDER, type Category } from "@/lib/types";
 import { ColourPips } from "./ColourPips";
 import { ManaCurve } from "./ManaCurve";
 import { CompletionRing } from "./CompletionRing";
-
-const NO_DETAILS = new Map<string, CardDetail>();
 
 /** Above this, a card is specific to the commander rather than a general staple. */
 const SIGNATURE_SYNERGY = 0.25;
@@ -23,40 +21,19 @@ type Props = {
   match: DeckMatch;
   index: CardIndex;
   prices: PriceIndex | null;
+  printings: PrintingIndex | null;
   /** Per-card usage from EDHREC. Absent for precons. */
   stats?: Map<string, CardStat>;
   backHref: string;
   backLabel: string;
 };
 
-/** A whole deck as card images, owned in colour and missing dimmed. */
-export function DeckView({ match, index, prices, stats, backHref, backLabel }: Props) {
-  const [loadedDetails, setLoadedDetails] = useState<{
-    key: string;
-    details: Map<string, CardDetail>;
-  } | null>(null);
+/**
+ * A whole deck as card images. Missing cards are marked with a ring rather than
+ * by altering the artwork, which Scryfall's terms forbid.
+ */
+export function DeckView({ match, index, prices, printings, stats, backHref, backLabel }: Props) {
   const [copied, setCopied] = useState(false);
-
-  // Keyed by deck so switching decks shows no images rather than the previous
-  // deck's, without clearing state synchronously inside the effect.
-  const details = loadedDetails?.key === match.deck.id ? loadedDetails.details : NO_DETAILS;
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchCardDetails([
-      ...match.entries.map((e) => e.card.n),
-      ...match.deck.basics.map(([i]) => index.cards[i]?.n).filter((n) => n !== undefined),
-    ])
-      .then((loaded) => {
-        if (!cancelled) setLoadedDetails({ key: match.deck.id, details: loaded });
-      })
-      .catch(() => {
-        // Without images the deck still reads as a list of names.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [match, index]);
 
   // The commander leads, the way a decklist writeup does.
   const { commanderEntries, grouped } = useMemo(() => {
@@ -167,7 +144,7 @@ export function DeckView({ match, index, prices, stats, backHref, backLabel }: P
             <CardGroup
               title="Commander"
               entries={commanderEntries}
-              details={details}
+              printings={printings}
               prices={prices}
               stats={stats}
               index={index}
@@ -180,7 +157,7 @@ export function DeckView({ match, index, prices, stats, backHref, backLabel }: P
               key={category}
               title={CATEGORY_LABELS[category]}
               entries={entries}
-              details={details}
+              printings={printings}
               prices={prices}
               stats={stats}
               // Basics belong with the lands, and are shown with their counts
@@ -193,7 +170,7 @@ export function DeckView({ match, index, prices, stats, backHref, backLabel }: P
 
         <aside className="w-full shrink-0 lg:w-80">
           <div className="space-y-6 lg:sticky lg:top-6">
-            <ManaCurve entries={match.entries} details={details} />
+            <ManaCurve entries={match.entries} printings={printings} />
 
             <div>
             <div className="flex items-baseline justify-between">
@@ -286,7 +263,7 @@ export function DeckView({ match, index, prices, stats, backHref, backLabel }: P
 function CardGroup({
   title,
   entries,
-  details,
+  printings,
   prices,
   stats,
   basics,
@@ -294,7 +271,7 @@ function CardGroup({
 }: {
   title: string;
   entries: DeckEntry[];
-  details: Map<string, CardDetail>;
+  printings: PrintingIndex | null;
   prices: PriceIndex | null;
   stats?: Map<string, CardStat>;
   basics?: { cardIndex: number; needed: number }[];
@@ -313,7 +290,7 @@ function CardGroup({
           <CardTile
             key={entry.cardIndex}
             entry={entry}
-            detail={details.get(entry.card.n)}
+            printings={printings}
             prices={prices}
             stat={stats?.get(entry.card.n)}
           />
@@ -325,8 +302,9 @@ function CardGroup({
             <BasicTile
               key={basic.cardIndex}
               name={card.n}
+              cardIndex={basic.cardIndex}
               needed={basic.needed}
-              detail={details.get(card.n)}
+              printings={printings}
             />
           );
         })}
@@ -335,60 +313,14 @@ function CardGroup({
   );
 }
 
-/**
- * A basic land. Shown with its count because the mana base is part of the
- * decklist, but with no owned or missing state — basics sit outside the
- * percentage, and colouring them either way would imply they were scored.
- */
-function BasicTile({
-  name,
-  needed,
-  detail,
-}: {
-  name: string;
-  needed: number;
-  detail?: CardDetail;
-}) {
-  return (
-    <div>
-      <div className="relative aspect-[488/680] w-full overflow-hidden rounded-lg bg-surface-2">
-        {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
-        {detail?.image && (
-          <Image
-            src={detail.image}
-            alt={name}
-            fill
-            unoptimized
-            loading="lazy"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover"
-          />
-        )}
-        {!detail?.image && (
-          <span className="absolute inset-0 grid place-items-center p-2 text-center text-xs text-muted">
-            {name}
-          </span>
-        )}
-        <span className="absolute left-1.5 top-1.5 rounded bg-background/80 px-1.5 py-0.5 text-[11px] font-semibold">
-          {needed}×
-        </span>
-      </div>
-      <div className="mt-1.5 space-y-0.5">
-        <p className="truncate text-xs font-medium">{name}</p>
-        <p className="text-[11px] text-muted">Mana base</p>
-      </div>
-    </div>
-  );
-}
-
 function CardTile({
   entry,
-  detail,
+  printings,
   prices,
   stat,
 }: {
   entry: DeckEntry;
-  detail?: CardDetail;
+  printings: PrintingIndex | null;
   prices: PriceIndex | null;
   stat?: CardStat;
 }) {
@@ -396,6 +328,8 @@ function CardTile({
   const partial = !owned && entry.have > 0;
   const price = prices ? gbpPrice(prices, entry.cardIndex) : undefined;
   const url = prices ? cardmarketUrl(prices, entry.cardIndex) : undefined;
+  const image = printings ? cardImageUrl(printings, entry.cardIndex) : undefined;
+  const set = printings ? setCodeOf(printings, entry.cardIndex) : undefined;
   const signature = stat !== undefined && stat.synergy >= SIGNATURE_SYNERGY;
 
   const usage =
@@ -407,15 +341,20 @@ function CardTile({
 
   const tile = (
     <>
+      {/*
+        Missing cards are marked with a ring and their caption, never by
+        altering the image: Scryfall's terms forbid desaturating, blurring or
+        colour-shifting card images, which the previous greyed-out treatment did.
+      */}
       <div
         className={`relative aspect-[488/680] w-full overflow-hidden rounded-lg bg-surface-2 ${
-          owned ? "" : "opacity-45 grayscale"
+          owned ? "" : "ring-2 ring-[#e07a6a]/70"
         }`}
       >
         {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
-        {detail?.image && (
+        {image && (
           <Image
-            src={detail.image}
+            src={image}
             alt={entry.card.n}
             fill
             unoptimized
@@ -424,7 +363,7 @@ function CardTile({
             className="object-cover"
           />
         )}
-        {!detail?.image && (
+        {!image && (
           <span className="absolute inset-0 grid place-items-center p-2 text-center text-xs text-muted">
             {entry.card.n}
           </span>
@@ -446,14 +385,14 @@ function CardTile({
           <p className="min-w-0 flex-1 truncate text-xs font-medium" title={entry.card.n}>
             {entry.card.n}
           </p>
-          {detail?.set && (
+          {set && (
             <Image
-              src={setIconUrl(detail.set)}
+              src={setIconUrl(set)}
               alt=""
               width={12}
               height={12}
               unoptimized
-              title={detail.setName}
+              title={set.toUpperCase()}
               // The icons ship unfilled, so they'd be black on black.
               className="shrink-0 opacity-60 invert"
             />
@@ -467,15 +406,11 @@ function CardTile({
               {signature && <span className="text-accent"> · signature</span>}
             </>
           ) : (
-            (detail?.rarity ?? entry.card.r)
+            entry.card.r
           )}
         </p>
 
-        <p
-          className={`truncate text-[11px] ${
-            owned ? "text-muted" : partial ? "text-muted" : "text-[#e07a6a]"
-          }`}
-        >
+        <p className={`truncate text-[11px] ${owned || partial ? "text-muted" : "text-[#e07a6a]"}`}>
           {owned
             ? "Owned"
             : partial
@@ -493,5 +428,54 @@ function CardTile({
     <a href={url} target="_blank" rel="noopener noreferrer" className="block hover:opacity-90">
       {tile}
     </a>
+  );
+}
+
+/**
+ * A basic land. Shown with its count because the mana base is part of the
+ * decklist, but with no owned or missing state — basics sit outside the
+ * percentage, and marking them either way would imply they were scored.
+ */
+function BasicTile({
+  name,
+  cardIndex,
+  needed,
+  printings,
+}: {
+  name: string;
+  cardIndex: number;
+  needed: number;
+  printings: PrintingIndex | null;
+}) {
+  const image = printings ? cardImageUrl(printings, cardIndex) : undefined;
+  return (
+    <div>
+      <div className="relative aspect-[488/680] w-full overflow-hidden rounded-lg bg-surface-2">
+        {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
+        {image && (
+          <Image
+            src={image}
+            alt={name}
+            fill
+            unoptimized
+            loading="lazy"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            className="object-cover"
+          />
+        )}
+        {!image && (
+          <span className="absolute inset-0 grid place-items-center p-2 text-center text-xs text-muted">
+            {name}
+          </span>
+        )}
+        <span className="absolute left-1.5 top-1.5 rounded bg-background/80 px-1.5 py-0.5 text-[11px] font-semibold">
+          {needed}×
+        </span>
+      </div>
+      <div className="mt-1.5 space-y-0.5">
+        <p className="truncate text-xs font-medium">{name}</p>
+        <p className="text-[11px] text-muted">Mana base</p>
+      </div>
+    </div>
   );
 }

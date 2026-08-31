@@ -1,6 +1,6 @@
 "use client";
 
-import type { CardDetail } from "@/lib/images";
+import { manaValueOf, type PrintingIndex } from "@/lib/printings";
 import type { DeckEntry } from "@/lib/match";
 
 const BUCKETS = 8;
@@ -27,10 +27,10 @@ type Bucket = { owned: number; missing: number };
  */
 export function ManaCurve({
   entries,
-  details,
+  printings,
 }: {
   entries: DeckEntry[];
-  details: Map<string, CardDetail>;
+  printings: PrintingIndex | null;
 }) {
   const buckets: Bucket[] = Array.from({ length: BUCKETS }, () => ({ owned: 0, missing: 0 }));
   let cards = 0;
@@ -39,7 +39,7 @@ export function ManaCurve({
 
   for (const entry of entries) {
     if (entry.category === "land") continue;
-    const cmc = details.get(entry.card.n)?.cmc;
+    const cmc = printings ? manaValueOf(printings, entry.cardIndex) : undefined;
     if (cmc === undefined) {
       unknown += entry.needed;
       continue;

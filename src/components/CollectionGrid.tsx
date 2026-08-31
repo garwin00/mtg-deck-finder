@@ -1,20 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import type { Collection } from "@/lib/collection";
-import { fetchCardDetails, setIconUrl, type CardDetail } from "@/lib/images";
+import { cardImageUrl, setCodeOf, setIconUrl, type PrintingIndex } from "@/lib/printings";
 import { cardmarketUrl, formatGbp, gbpPrice, type PriceIndex } from "@/lib/prices";
 import type { CardIndex, CardRecord } from "@/lib/types";
 import { ColourPips } from "./ColourPips";
 
-/**
- * A page at a time, because images are fetched from Scryfall 75 names per
- * request — the whole collection at once would be 35 requests before anything
- * appeared, where one page is one request.
- */
+/** A page at a time: 2,555 cards is a lot of image elements to mount at once. */
 const PAGE_SIZE = 60;
-const NO_DETAILS = new Map<string, CardDetail>();
 
 const COLOURS = [
   { key: "W", label: "White" },
@@ -43,10 +38,12 @@ export function CollectionGrid({
   index,
   collection,
   prices,
+  printings,
 }: {
   index: CardIndex;
   collection: Collection;
   prices: PriceIndex | null;
+  printings: PrintingIndex | null;
 }) {
   const [query, setQuery] = useState("");
   const [colours, setColours] = useState<Set<string>>(new Set());
@@ -98,28 +95,7 @@ export function CollectionGrid({
     () => filtered.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE),
     [filtered, current]
   );
-  const pageKey = useMemo(() => visible.map((r) => r.cardIndex).join(","), [visible]);
 
-  const [loadedDetails, setLoadedDetails] = useState<{
-    key: string;
-    details: Map<string, CardDetail>;
-  } | null>(null);
-  const details = loadedDetails?.key === pageKey ? loadedDetails.details : NO_DETAILS;
-
-  useEffect(() => {
-    if (visible.length === 0) return;
-    let cancelled = false;
-    fetchCardDetails(visible.map((r) => r.card.n))
-      .then((loaded) => {
-        if (!cancelled) setLoadedDetails({ key: pageKey, details: loaded });
-      })
-      .catch(() => {
-        // Names still render without art.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [visible, pageKey]);
 
   const toggleColour = (key: string) => {
     setPage(0);
@@ -242,7 +218,7 @@ export function CollectionGrid({
             <CollectionCard
               key={row.cardIndex}
               row={row}
-              detail={details.get(row.card.n)}
+              printings={printings}
               prices={prices}
             />
           ))}
@@ -278,23 +254,25 @@ export function CollectionGrid({
 
 function CollectionCard({
   row,
-  detail,
+  printings,
   prices,
 }: {
   row: Row;
-  detail?: CardDetail;
+  printings: PrintingIndex | null;
   prices: PriceIndex | null;
 }) {
   const each = prices ? gbpPrice(prices, row.cardIndex) : undefined;
   const url = prices ? cardmarketUrl(prices, row.cardIndex) : undefined;
+  const image = printings ? cardImageUrl(printings, row.cardIndex) : undefined;
+  const set = printings ? setCodeOf(printings, row.cardIndex) : undefined;
 
   const body = (
     <>
       <div className="relative aspect-[488/680] w-full overflow-hidden rounded-lg bg-surface-2">
         {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
-        {detail?.image && (
+        {image && (
           <Image
-            src={detail.image}
+            src={image}
             alt={row.card.n}
             fill
             unoptimized
@@ -303,7 +281,7 @@ function CollectionCard({
             className="object-cover"
           />
         )}
-        {!detail?.image && (
+        {!image && (
           <span className="absolute inset-0 grid place-items-center p-2 text-center text-xs text-muted">
             {row.card.n}
           </span>
@@ -325,14 +303,14 @@ function CollectionCard({
           <p className="min-w-0 flex-1 truncate text-xs font-medium" title={row.card.n}>
             {row.card.n}
           </p>
-          {detail?.set && (
+          {set && (
             <Image
-              src={setIconUrl(detail.set)}
+              src={setIconUrl(set)}
               alt=""
               width={12}
               height={12}
               unoptimized
-              title={detail.setName}
+              title={set.toUpperCase()}
               // The icons ship unfilled, so they'd be black on black.
               className="shrink-0 opacity-60 invert"
             />

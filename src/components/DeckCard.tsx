@@ -15,7 +15,8 @@ import { CompletionRing } from "./CompletionRing";
  * rule so it reads as a footnote rather than another fact of equal weight.
  */
 export function DeckCard({ match, href }: { match: DeckMatch; href: string }) {
-  const art = match.commanders.find((c) => c.art)?.art;
+  const artFrom = match.commanders.find((c) => c.art);
+  const art = artFrom?.art;
   const missingCount = match.missing.reduce((sum, e) => sum + (e.needed - e.have), 0);
 
   return (
@@ -34,6 +35,13 @@ export function DeckCard({ match, href }: { match: DeckMatch; href: string }) {
             sizes="(max-width: 768px) 100vw, 33vw"
             className="object-cover opacity-70 transition group-hover:opacity-90"
           />
+        )}
+        {/* Scryfall require the artist to be credited wherever an art crop is
+            shown, unless the full card appears in the same interface. */}
+        {artFrom?.artist && (
+          <span className="absolute bottom-0 right-0 max-w-full truncate bg-background/70 px-1.5 py-0.5 text-[9px] text-muted">
+            {artFrom.artist}
+          </span>
         )}
         {match.percent >= 90 && (
           <span className="absolute left-3 top-3 rounded-full bg-[#7bd88f] px-2 py-0.5 text-[11px] font-bold text-[#0d2a15]">

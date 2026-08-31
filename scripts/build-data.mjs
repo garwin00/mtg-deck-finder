@@ -10,6 +10,9 @@
  *  - cards.json    slim records for every card we might need to talk about,
  *                  plus a normalised-name alias map for collection matching.
  *  - precons.json  decklists as indices into cards.json.
+ *  - printings.json id, set and mana value per card, so the browser can build
+ *                  image URLs itself instead of calling Scryfall's API — which
+ *                  requires a User-Agent header browser JavaScript cannot set.
  *
  * Run: npm run build:data
  */
@@ -131,6 +134,8 @@ async function main() {
   /** cards[] records, plus alias -> index. */
   const cards = [];
   const byAlias = new Map();
+  /** Parallel to cards[]: the printing to show, and what to show about it. */
+  const printings = [];
 
   const addCard = (c, { withArt = false } = {}) => {
     const record = {
@@ -146,8 +151,13 @@ async function main() {
     if (withArt) {
       const art = c.image_uris?.art_crop ?? c.card_faces?.[0]?.image_uris?.art_crop;
       if (art) record.art = art;
+      // Scryfall require the artist to be credited wherever an art crop is
+      // shown, unless the full card is shown in the same interface.
+      const artist = c.artist ?? c.card_faces?.[0]?.artist;
+      if (artist) record.artist = artist;
     }
     const index = cards.push(record) - 1;
+    printings.push({ id: c.id, set: c.set ?? "", cmc: c.cmc ?? 0 });
     for (const k of aliasKeys(c.name)) if (!byAlias.has(k)) byAlias.set(k, index);
     return index;
   };
@@ -240,6 +250,26 @@ async function main() {
   };
 
   await write("cards.json", { generatedAt, cards, aliases: Object.fromEntries(byAlias) });
+
+  // Set codes repeat heavily, so they are interned; ids lose their dashes and
+  // are rebuilt on the client. Kept out of cards.json so the upload path does
+  // not pay for data only a deck page needs.
+  const setCodes = [];
+  const setAt = new Map();
+  const sets = [];
+  for (const p of printings) {
+    if (!setAt.has(p.set)) {
+      setAt.set(p.set, setCodes.push(p.set) - 1);
+    }
+    sets.push(setAt.get(p.set));
+  }
+  await write("printings.json", {
+    generatedAt,
+    setCodes,
+    ids: printings.map((p) => p.id.replace(/-/g, "")),
+    sets,
+    cmc: printings.map((p) => p.cmc),
+  });
   await write("precons.json", { generatedAt, gameChangerCount: gameChangers.size, decks });
   await writeFile(
     path.join(OUT_DIR, "manifest.json"),

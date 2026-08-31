@@ -19,6 +19,8 @@ export type OwnedCommander = {
   addedAt?: number;
   /** Art crop, present for all but a couple of dozen commanders. */
   art?: string;
+  /** Credited alongside the art crop, as Scryfall require. */
+  artist?: string;
 };
 
 /**
@@ -65,6 +67,7 @@ export function ownedFromCatalogue(
         .filter((l) => l !== undefined),
       addedAt: collection.addedAt.get(entry.c),
       art: card.art,
+      artist: card.artist,
     });
   }
   return owned;

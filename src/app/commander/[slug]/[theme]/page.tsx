@@ -80,6 +80,7 @@ export default function CommanderDeckPage({
           match={current.match}
           index={state.index}
           prices={state.prices}
+          printings={state.printings}
           stats={current.stats}
           backHref={`/commander/${slug}`}
           backLabel={`Back to ${commander.name}`}

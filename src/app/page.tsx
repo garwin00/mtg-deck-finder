@@ -156,7 +156,9 @@ export default function Home() {
           <footer className="mt-10 space-y-1 text-xs text-muted">
             <p>
               Basic lands are excluded from both sides of every percentage. Card data from Scryfall,
-              decklists from MTGJSON and EDHREC. Bracket estimates count Game Changers only.
+              decklists from MTGJSON and EDHREC. Bracket estimates count Game Changers only. Card
+              images and card names are copyright Wizards of the Coast; artists are credited on
+              each image.
             </p>
             {collection.unknown.length > 0 && (
               <p>

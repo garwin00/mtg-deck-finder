@@ -25,6 +25,7 @@ export default function PreconPage({ params }: { params: Promise<{ id: string }>
           match={match}
           index={state.index}
           prices={state.prices}
+          printings={state.printings}
           backHref="/"
           backLabel="Back to your decks"
         />

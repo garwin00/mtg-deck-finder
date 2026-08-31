@@ -55,7 +55,12 @@ export default function CollectionPage() {
         )}
       </header>
 
-      <CollectionGrid index={state.index} collection={state.collection} prices={state.prices} />
+      <CollectionGrid
+        index={state.index}
+        collection={state.collection}
+        prices={state.prices}
+        printings={state.printings}
+      />
     </main>
   );
 }

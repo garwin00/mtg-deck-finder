@@ -324,6 +324,13 @@ function CommanderCard({
             className="object-cover opacity-70 transition group-hover:opacity-95"
           />
         )}
+        {/* Scryfall require the artist to be credited wherever an art crop is
+            shown, unless the full card appears in the same interface. */}
+        {commander.artist && (
+          <span className="absolute bottom-0 right-0 max-w-full truncate bg-background/70 px-1.5 py-0.5 text-[9px] text-muted">
+            {commander.artist}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-3">

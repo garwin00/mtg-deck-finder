@@ -31,6 +31,8 @@ export type CardRecord = {
   basic?: 1;
   /** Art crop URL, only present for commander candidates. */
   art?: string;
+  /** Credited wherever the art crop is shown, as Scryfall require. */
+  artist?: string;
 };
 
 export type CardIndex = {

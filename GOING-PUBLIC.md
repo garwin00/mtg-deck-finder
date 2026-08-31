@@ -6,7 +6,7 @@ the upstream services actually ask for. Nothing here blocks personal use.
 Each item says what the problem is, what the evidence was, and what the fix
 would be — so the reasoning survives even if the numbers move.
 
-## 1. Scryfall image handling — we are currently non-compliant
+## 1. Scryfall image handling — RESOLVED 31 Aug 2026
 
 Their [API docs](https://scryfall.com/docs/api) state, verbatim:
 
@@ -29,12 +29,12 @@ images; `/` and `/collection` do not.
 > Repeated mishandling or misrepresentation of data or images in your project
 > may result in Scryfall restricting or blocking your API access.
 
-**Fix:** signal "missing" without touching the pixels — a red border, a corner
-badge, or a scrim drawn *over* the tile rather than a filter applied *to* the
-image. Add artist and copyright to any surface showing an art crop; Scryfall
-returns `artist` on the card object we already fetch.
+**Done.** Missing cards carry a red ring and a red caption; no filter is applied
+to any card image. The artist is credited on every art crop, overlaid bottom
+right, and the home page footer carries the copyright line. `CardRecord.artist`
+is populated for commanders, which is the only place art crops are used.
 
-## 2. Scryfall requires headers a browser cannot send
+## 2. Scryfall API headers — RESOLVED 31 Aug 2026
 
 > All HTTP requests to api.scryfall.com must include a User-Agent header and an
 > Accept header. […] Do not allow HTTP libraries to choose the header for you.
@@ -42,18 +42,21 @@ returns `artist` on the card object we already fetch.
 `src/lib/images.ts` calls `api.scryfall.com` from the browser, which cannot set
 `User-Agent`. There is no client-side way to comply.
 
-**Fix, and it is the good one:** stop calling the API for images at all. A card
+**Done**, the good way: the API is no longer called from the browser at all. A card
 image URL is derivable from its Scryfall id —
 `https://cards.scryfall.io/normal/front/<id[0]>/<id[1]>/<id>.jpg` — and
 `cards.scryfall.io` is a CDN, not the API, so it carries no header requirement.
-Storing ids at build time costs roughly 1MB raw (~0.85MB brotli, hex compresses
-poorly) in a file that only loads when a deck opens, and in exchange removes
-three API requests per deck page, the two per collection page, the whole
-double-faced-name workaround in `images.ts`, and this compliance problem
-together. Rate limits stop applying as well.
+`build-data.mjs` emits `printings.json` (1.29MB raw, 0.59MB brotli) with the id,
+set and mana value of each card, loaded only when cards are shown. That removed
+three API requests per deck page, two per collection page, the whole
+double-faced-name workaround and its ten name collisions, and this compliance
+problem together. Rate limits no longer apply.
+
+Measured after the change: opening a commander and its deck makes **zero**
+`api.scryfall.com` requests, and all 82 image URLs for a deck are built locally.
 
 The alternative — proxying through a Next route handler that sets the headers —
-works but reintroduces a server, which the privacy design deliberately avoids.
+would have worked but reintroduces a server, which the privacy design avoids.
 
 ## 3. EDHREC load, at scale
 
@@ -62,7 +65,7 @@ Measured on a real 5,851-card collection:
 | Flow | Requests | Data |
 | --- | --- | --- |
 | Score every owned commander | 188 | 7.7MB |
-| Open one commander | 8 | 0.41MB |
+| Open one commander and a deck | 2 | 0.41MB |
 
 Scores are cached against a collection fingerprint, so it is once per collection
 rather than once per session. Fine for one person. With a public audience it is

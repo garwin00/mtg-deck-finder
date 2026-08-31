@@ -21,6 +21,7 @@ import { fetchAverageDeck, ownedFromCatalogue, type OwnedCommander } from "@/lib
 import { fetchJsonWithProgress, type Manifest } from "@/lib/load";
 import { matchDecks, matchPrecons, type DeckMatch } from "@/lib/match";
 import type { PriceIndex } from "@/lib/prices";
+import type { PrintingIndex } from "@/lib/printings";
 import {
   fingerprint,
   forgetCollection,
@@ -49,6 +50,7 @@ export type CollectionState = {
   precons: DeckMatch[] | null;
   owned: OwnedCommander[] | null;
   prices: PriceIndex | null;
+  printings: PrintingIndex | null;
   load: LoadState | null;
   error?: string;
   busy: boolean;
@@ -64,7 +66,7 @@ export type CollectionState = {
   reset: () => void;
   /** Clear it from this device as well as from memory. */
   forget: () => void;
-  /** Prices are only needed on a deck page, so they load on demand. */
+  /** Prices and printings are only needed once cards are shown, so they load on demand. */
   ensurePrices: () => void;
 };
 
@@ -82,6 +84,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
   const [precons, setPrecons] = useState<DeckMatch[] | null>(null);
   const [owned, setOwned] = useState<OwnedCommander[] | null>(null);
   const [prices, setPrices] = useState<PriceIndex | null>(null);
+  const [printings, setPrintings] = useState<PrintingIndex | null>(null);
   const [load, setLoad] = useState<LoadState | null>(null);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -170,6 +173,12 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       .then((loaded) => loaded && setPrices(loaded))
       .catch(() => {
         // Prices are an extra; a decklist still works without them.
+      });
+    fetch("/data/printings.json")
+      .then((r) => (r.ok ? (r.json() as Promise<PrintingIndex>) : null))
+      .then((loaded) => loaded && setPrintings(loaded))
+      .catch(() => {
+        // Without printings, cards render as their names.
       });
   }, [pricesRequested]);
 
@@ -306,6 +315,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       precons,
       owned,
       prices,
+      printings,
       load,
       error,
       busy,
@@ -329,6 +339,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       precons,
       owned,
       prices,
+      printings,
       load,
       error,
       busy,
