@@ -15,7 +15,7 @@ import {
   type OwnedCommander,
 } from "@/lib/edhrec";
 import { fetchJsonWithProgress, type Manifest } from "@/lib/load";
-import { matchDecks, matchPrecons, ownedCommanders, type DeckMatch } from "@/lib/match";
+import { matchDecks, matchPrecons, type DeckMatch } from "@/lib/match";
 import type { CardIndex, CommanderCatalogue, PreconIndex } from "@/lib/types";
 
 const THRESHOLDS = [0, 50, 70, 90];
@@ -141,15 +141,20 @@ export default function Home() {
     }
   };
 
+  const reset = () => {
+    setMatches(null);
+    setOwned(null);
+    setCommander(null);
+    setDeckMatches(null);
+    setCollection(null);
+    setIndex(null);
+    setShowPrecons(false);
+  };
+
   const backToCommanders = () => {
     setCommander(null);
     setDeckMatches(null);
   };
-
-  const commanders = useMemo(
-    () => (index && collection ? ownedCommanders(index, collection) : []),
-    [index, collection]
-  );
 
   const visible = useMemo(
     () => (matches ?? []).filter((m) => m.percent >= threshold),
@@ -158,12 +163,23 @@ export default function Home() {
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
-      <header className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight">Deck Finder</h1>
-        <p className="mt-2 max-w-2xl text-muted">
-          Upload a collection export and find out which Commander decks you are closest to already
-          owning — ranked by completion, with a list of what is missing.
-        </p>
+      <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Deck Finder</h1>
+          <p className="mt-2 max-w-2xl text-muted">
+            Upload a collection export and find out which Commander decks you are closest to
+            already owning — ranked by completion, with a list of what is missing.
+          </p>
+        </div>
+        {collection && (
+          <button
+            type="button"
+            onClick={reset}
+            className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-sm text-muted hover:border-accent/60 hover:text-foreground"
+          >
+            Upload a different file
+          </button>
+        )}
       </header>
 
       {load && <LoadingPanel state={load} />}
@@ -178,35 +194,7 @@ export default function Home() {
 
       {collection && matches && (
         <>
-          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Cards in collection" value={collection.totalCards.toLocaleString()} />
-            <Stat label="Distinct cards matched" value={collection.distinctMatched.toLocaleString()} />
-            <Stat label="Legal commanders owned" value={commanders.length.toLocaleString()} />
-            <Stat
-              label="Commanders with decks"
-              value={(owned?.length ?? 0).toLocaleString()}
-            />
-          </section>
-
-          <div className="mt-4 flex justify-end">
-            <button
-              type="button"
-              onClick={() => {
-                setMatches(null);
-                setOwned(null);
-                setCommander(null);
-                setDeckMatches(null);
-                setCollection(null);
-                setIndex(null);
-                setShowPrecons(false);
-              }}
-              className="text-sm text-muted underline hover:text-foreground"
-            >
-              Upload a different file
-            </button>
-          </div>
-
-          <div className="mt-6">
+          <div>
             {owned && !commander && (
               <CommanderList
                 commanders={owned}
@@ -307,11 +295,3 @@ export default function Home() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border bg-surface p-4">
-      <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
-      <p className="mt-1 text-2xl font-semibold">{value}</p>
-    </div>
-  );
-}
