@@ -105,6 +105,11 @@ opened on someone else's device still has no collection —
 | `src/components/DeckView.tsx` | A deck as card images, owned in colour and missing dimmed. |
 | `src/components/ManaCurve.tsx` | Mana curve, split owned/missing. Lands excluded, as a curve conventionally is. |
 
+**Going public is not the current scope**, but the constraints it would impose
+are recorded in `GOING-PUBLIC.md` — chiefly that greying out missing cards
+breaks Scryfall's image terms, and that scoring costs 188 requests to EDHREC per
+collection. Read it before changing how images are fetched or displayed.
+
 ## Domain decisions (don't quietly reverse these)
 
 - **Basic lands are shown but never scored.** They appear in the Lands group with
