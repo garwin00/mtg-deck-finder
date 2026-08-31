@@ -158,11 +158,11 @@ the UI makes.
 - **Prices are an estimate and must stay labelled as one.** One snapshot,
   cheapest printing, ignoring condition, seller and shipping — and EU sellers
   add ~20% import VAT into the UK.
-- **The colour filter means "within these colours".** A commander shows when
-  every colour it needs is selected, so picking B+G gives mono-black, mono-green
-  and Golgari but not Jund — the question a deckbuilder is actually asking.
-  Colourless is its own pip rather than being swept in by every selection, which
-  a strict subset test would do.
+- **The colour filter matches an exact identity, not a subset.** Picking B+G
+  gives Golgari commanders only — not mono-black, mono-green or Jund. A subset
+  match buried the combination being looked for under every simpler one that fit
+  inside it. Colourless is its own identity, so selecting it beside a colour
+  matches nothing, which is right: no commander is colourless plus black.
 - **Commander decks lead, precons are secondary.** Precons sit below the fold
   behind a Show toggle: for a real collection they mostly restate purchases.
 

@@ -84,14 +84,13 @@ export function CommanderList({ commanders }: Props) {
         return false;
       }
       if (colours.size > 0) {
-        // Within the selection: a commander fits if every colour it needs is
-        // picked. Colourless is its own pip so it isn't swept in by every
-        // selection, being technically a subset of all of them.
-        if (commander.colours === "") {
-          if (!colours.has("C")) return false;
-        } else if (![...commander.colours].every((c) => colours.has(c))) {
-          return false;
-        }
+        // Exactly the selection: picking U, B and R gives Grixis commanders
+        // only, not every mono-black and Dimir one that also fits inside it.
+        // Colourless is its own identity, so C alongside a colour matches
+        // nothing, which is correct — no commander is colourless plus black.
+        const identity = commander.colours === "" ? ["C"] : [...commander.colours];
+        if (identity.length !== colours.size) return false;
+        if (!identity.every((c) => colours.has(c))) return false;
       }
       return true;
     });
@@ -260,7 +259,9 @@ export function CommanderList({ commanders }: Props) {
       )}
 
       <p className="mt-3 text-xs text-muted">
-        Decklists are fetched from EDHREC when you open a commander, not stored here. Themes are
+        Colour filters match an exact identity, so picking two colours excludes the mono-coloured
+        commanders that would fit inside it. Decklists are fetched from EDHREC when you open a
+        commander, not stored here. Themes are
         EDHREC&apos;s leading commanders per theme rather than an exhaustive tagging, so a filter
         shows the best-known commanders for it rather than every one you own.
       </p>
