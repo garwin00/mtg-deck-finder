@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { DeckMatch } from "@/lib/match";
 import type { OwnedCommander } from "@/lib/edhrec";
 import { DeckCard } from "./DeckCard";
@@ -9,8 +10,6 @@ type Props = {
   matches: DeckMatch[] | null;
   loaded: number;
   total: number;
-  onOpen: (match: DeckMatch) => void;
-  onBack: () => void;
 };
 
 /**
@@ -18,16 +17,12 @@ type Props = {
  * already is. Scoring every variant up front is the point — browsing blind
  * would mean opening each one to find out.
  */
-export function CommanderDecks({ commander, matches, loaded, total, onOpen, onBack }: Props) {
+export function CommanderDecks({ commander, matches, loaded, total }: Props) {
   return (
     <section>
-      <button
-        type="button"
-        onClick={onBack}
-        className="text-sm text-muted underline hover:text-foreground"
-      >
+      <Link href="/" className="text-sm text-muted underline hover:text-foreground">
         ← Back to your commanders
-      </button>
+      </Link>
 
       <div className="mt-3 flex items-baseline justify-between">
         <h2 className="text-lg font-semibold">{commander.name}</h2>
@@ -41,7 +36,12 @@ export function CommanderDecks({ commander, matches, loaded, total, onOpen, onBa
       ) : (
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {matches.map((match) => (
-            <DeckCard key={match.deck.id} match={match} onOpen={() => onOpen(match)} />
+            <DeckCard
+              key={match.deck.id}
+              match={match}
+              // Deck ids are "<slug>:<theme>"; the route mirrors that.
+              href={`/commander/${commander.slug}/${match.deck.id.split(":")[1] ?? "average"}`}
+            />
           ))}
         </div>
       )}

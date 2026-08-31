@@ -1,0 +1,329 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import type { DeckEntry, DeckMatch } from "@/lib/match";
+import { missingAsCsv, missingAsText } from "@/lib/match";
+import { cardmarketUrl, formatGbp, gbpPrice, type PriceIndex } from "@/lib/prices";
+import { fetchCardImages } from "@/lib/images";
+import { CATEGORY_LABELS, CATEGORY_ORDER, type Category } from "@/lib/types";
+import { ColourPips } from "./ColourPips";
+import { CompletionRing } from "./CompletionRing";
+
+const NO_IMAGES = new Map<string, string>();
+
+type Props = {
+  match: DeckMatch;
+  prices: PriceIndex | null;
+  backHref: string;
+  backLabel: string;
+};
+
+/** A whole deck as card images, owned in colour and missing dimmed. */
+export function DeckView({ match, prices, backHref, backLabel }: Props) {
+  const [loadedImages, setLoadedImages] = useState<{
+    key: string;
+    images: Map<string, string>;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Keyed by deck so switching decks shows no images rather than the previous
+  // deck's, without clearing state synchronously inside the effect.
+  const images = loadedImages?.key === match.deck.id ? loadedImages.images : NO_IMAGES;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCardImages(match.entries.map((e) => e.card.n))
+      .then((loaded) => {
+        if (!cancelled) setLoadedImages({ key: match.deck.id, images: loaded });
+      })
+      .catch(() => {
+        // Without images the deck still reads as a list of names.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [match]);
+
+  // The commander leads, the way a decklist writeup does.
+  const { commanderEntries, grouped } = useMemo(() => {
+    const isCommander = new Set(match.deck.commanders);
+    const buckets = new Map<Category, DeckEntry[]>();
+    const commanders: DeckEntry[] = [];
+    for (const entry of match.entries) {
+      if (isCommander.has(entry.cardIndex)) {
+        commanders.push(entry);
+        continue;
+      }
+      const list = buckets.get(entry.category) ?? [];
+      list.push(entry);
+      buckets.set(entry.category, list);
+    }
+    return {
+      commanderEntries: commanders,
+      grouped: CATEGORY_ORDER.filter((c) => buckets.has(c)).map((category) => ({
+        category,
+        entries: (buckets.get(category) ?? []).sort((a, b) => a.card.n.localeCompare(b.card.n)),
+      })),
+    };
+  }, [match]);
+
+  const estimate = useMemo(() => {
+    if (!prices) return undefined;
+    let total = 0;
+    let unpriced = 0;
+    for (const entry of match.missing) {
+      const each = gbpPrice(prices, entry.cardIndex);
+      if (each === undefined) unpriced++;
+      else total += each * (entry.needed - entry.have);
+    }
+    return { total, unpriced };
+  }, [match, prices]);
+
+  const missingCount = match.missing.reduce((s, e) => s + (e.needed - e.have), 0);
+
+  const copyMissing = async () => {
+    await navigator.clipboard.writeText(missingAsText(match));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const downloadCsv = () => {
+    const blob = new Blob([missingAsCsv(match)], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${match.deck.id.replace(/[^a-z0-9]+/gi, "-")}-missing.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <>
+      <Link href={backHref} className="text-sm text-muted underline hover:text-foreground">
+        ← {backLabel}
+      </Link>
+
+      <header className="mt-3 flex flex-wrap items-start gap-4">
+        <CompletionRing percent={match.percent} size={64} />
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-semibold tracking-tight">{match.deck.name}</h1>
+          <p className="mt-1 text-sm text-muted">
+            {match.deck.subtitle} ·{" "}
+            {match.commanders.map((c) => c.n).join(" & ") || "No listed commander"}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted">
+            <ColourPips colours={match.colours} />
+            <span>
+              {match.ownedCards}/{match.totalCards} owned
+            </span>
+            <span className="rounded bg-surface-2 px-1.5 py-0.5">
+              Bracket {match.bracket.label}
+            </span>
+            {match.deck.basics > 0 && <span>+ {match.deck.basics} basics (ignored)</span>}
+          </div>
+        </div>
+      </header>
+
+      <div className="mt-8 flex flex-col gap-8 lg:flex-row">
+        <div className="min-w-0 flex-1 space-y-8">
+          {commanderEntries.length > 0 && (
+            <CardGroup title="Commander" entries={commanderEntries} images={images} prices={prices} />
+          )}
+          {grouped.map(({ category, entries }) => (
+            <CardGroup
+              key={category}
+              title={CATEGORY_LABELS[category]}
+              entries={entries}
+              images={images}
+              prices={prices}
+            />
+          ))}
+        </div>
+
+        <aside className="w-full shrink-0 lg:w-80">
+          <div className="lg:sticky lg:top-6">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+                Missing ({missingCount})
+              </h2>
+              {estimate && missingCount > 0 && (
+                <span className="text-sm text-muted">~{formatGbp(estimate.total)}</span>
+              )}
+            </div>
+
+            {missingCount === 0 ? (
+              <p className="mt-3 text-sm text-muted">
+                You own every non-basic card in this deck.
+              </p>
+            ) : (
+              <>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={copyMissing}
+                    className="rounded-md border border-border px-3 py-1 text-xs hover:border-accent/60"
+                  >
+                    {copied ? "Copied" : "Copy list"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={downloadCsv}
+                    className="rounded-md border border-border px-3 py-1 text-xs hover:border-accent/60"
+                  >
+                    Download CSV
+                  </button>
+                </div>
+
+                <ul className="mt-3 max-h-[32rem] divide-y divide-border overflow-y-auto rounded-lg border border-border bg-surface">
+                  {[...match.missing]
+                    .sort((a, b) => {
+                      const pa = prices ? (gbpPrice(prices, a.cardIndex) ?? -1) : 0;
+                      const pb = prices ? (gbpPrice(prices, b.cardIndex) ?? -1) : 0;
+                      return pb - pa || a.card.n.localeCompare(b.card.n);
+                    })
+                    .map((entry) => {
+                      const each = prices ? gbpPrice(prices, entry.cardIndex) : undefined;
+                      const url = prices ? cardmarketUrl(prices, entry.cardIndex) : undefined;
+                      const copies = entry.needed - entry.have;
+                      return (
+                        <li key={entry.cardIndex} className="flex items-center gap-2 px-3 py-2 text-sm">
+                          <span className="w-6 shrink-0 text-xs text-muted">{copies}×</span>
+                          <span className="min-w-0 flex-1 truncate">
+                            {url ? (
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:text-accent hover:underline"
+                              >
+                                {entry.card.n}
+                              </a>
+                            ) : (
+                              entry.card.n
+                            )}
+                          </span>
+                          <span className="shrink-0 text-xs tabular-nums text-muted">
+                            {each === undefined ? "—" : formatGbp(each * copies)}
+                          </span>
+                        </li>
+                      );
+                    })}
+                </ul>
+
+                {prices && (
+                  <p className="mt-2 text-xs text-muted">
+                    Cheapest printing on Cardmarket, converted at the ECB rate
+                    {prices.rateDate ? ` of ${prices.rateDate}` : ""}. Excludes shipping, and EU
+                    sellers add around 20% import VAT on delivery to the UK.
+                    {estimate && estimate.unpriced > 0 &&
+                      ` ${estimate.unpriced} card${estimate.unpriced === 1 ? " has" : "s have"} no listed price.`}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </aside>
+      </div>
+    </>
+  );
+}
+
+function CardGroup({
+  title,
+  entries,
+  images,
+  prices,
+}: {
+  title: string;
+  entries: DeckEntry[];
+  images: Map<string, string>;
+  prices: PriceIndex | null;
+}) {
+  return (
+    <section>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+        {title} ({entries.reduce((s, e) => s + e.needed, 0)})
+      </h2>
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+        {entries.map((entry) => (
+          <CardTile
+            key={entry.cardIndex}
+            entry={entry}
+            image={images.get(entry.card.n)}
+            prices={prices}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CardTile({
+  entry,
+  image,
+  prices,
+}: {
+  entry: DeckEntry;
+  image?: string;
+  prices: PriceIndex | null;
+}) {
+  const owned = entry.have >= entry.needed;
+  const price = prices ? gbpPrice(prices, entry.cardIndex) : undefined;
+  const url = prices ? cardmarketUrl(prices, entry.cardIndex) : undefined;
+
+  const tile = (
+    <>
+      <div
+        className={`relative aspect-[488/680] w-full overflow-hidden rounded-lg bg-surface-2 ${
+          owned ? "" : "opacity-45 grayscale"
+        }`}
+      >
+        {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
+        {image && (
+          <Image
+            src={image}
+            alt={entry.card.n}
+            fill
+            unoptimized
+            loading="lazy"
+            sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 20vw"
+            className="object-cover"
+          />
+        )}
+        {!image && (
+          <span className="absolute inset-0 grid place-items-center p-2 text-center text-[11px] text-muted">
+            {entry.card.n}
+          </span>
+        )}
+        {entry.needed > 1 && (
+          <span className="absolute left-1.5 top-1.5 rounded bg-background/80 px-1.5 py-0.5 text-[11px] font-semibold">
+            {entry.needed}×
+          </span>
+        )}
+        {entry.card.gc === 1 && (
+          <span className="absolute right-1.5 top-1.5 rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-accent">
+            GC
+          </span>
+        )}
+      </div>
+      <p className={`mt-1 truncate text-[11px] ${owned ? "text-muted" : "text-[#e07a6a]"}`}>
+        {owned
+          ? entry.have < entry.needed
+            ? `${entry.have} of ${entry.needed}`
+            : "Owned"
+          : price !== undefined
+            ? formatGbp(price)
+            : "Missing"}
+      </p>
+    </>
+  );
+
+  if (owned || !url) return <div>{tile}</div>;
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="block hover:opacity-90">
+      {tile}
+    </a>
+  );
+}

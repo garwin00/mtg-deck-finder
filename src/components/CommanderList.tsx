@@ -2,14 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import type { OwnedCommander } from "@/lib/edhrec";
 import { ColourPips } from "./ColourPips";
 
 type Props = {
   commanders: OwnedCommander[];
-  /** Slug currently being fetched, if any. */
-  opening?: string;
-  onSelect: (commander: OwnedCommander) => void;
 };
 
 type Sort = "popularity" | "name" | "added";
@@ -37,7 +35,7 @@ const PIP_STYLES: Record<string, string> = {
  * EDHREC and scores them — decklists are never held locally, so this is the
  * only route to them.
  */
-export function CommanderList({ commanders, opening, onSelect }: Props) {
+export function CommanderList({ commanders }: Props) {
   const [query, setQuery] = useState("");
   const [colours, setColours] = useState<Set<string>>(new Set());
   const [type, setType] = useState("");
@@ -203,13 +201,7 @@ export function CommanderList({ commanders, opening, onSelect }: Props) {
       ) : (
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {visible.map((commander) => (
-            <CommanderCard
-              key={commander.slug}
-              commander={commander}
-              busy={opening === commander.slug}
-              disabled={Boolean(opening)}
-              onSelect={() => onSelect(commander)}
-            />
+            <CommanderCard key={commander.slug} commander={commander} />
           ))}
         </div>
       )}
@@ -221,23 +213,11 @@ export function CommanderList({ commanders, opening, onSelect }: Props) {
   );
 }
 
-function CommanderCard({
-  commander,
-  busy,
-  disabled,
-  onSelect,
-}: {
-  commander: OwnedCommander;
-  busy: boolean;
-  disabled: boolean;
-  onSelect: () => void;
-}) {
+function CommanderCard({ commander }: { commander: OwnedCommander }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={disabled}
-      className="group flex flex-col overflow-hidden rounded-xl border border-border bg-surface text-left transition hover:border-accent/60 disabled:opacity-50"
+    <Link
+      href={`/commander/${commander.slug}`}
+      className="group flex flex-col overflow-hidden rounded-xl border border-border bg-surface text-left transition hover:border-accent/60"
     >
       <div className="relative h-24 w-full bg-surface-2">
         {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
@@ -251,11 +231,6 @@ function CommanderCard({
             className="object-cover opacity-70 transition group-hover:opacity-95"
           />
         )}
-        {busy && (
-          <span className="absolute inset-0 grid place-items-center bg-background/70 text-xs text-muted">
-            Loading decks…
-          </span>
-        )}
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-3">
@@ -265,6 +240,6 @@ function CommanderCard({
           <span className="text-xs text-muted">{commander.numDecks.toLocaleString()}</span>
         </div>
       </div>
-    </button>
+    </Link>
   );
 }

@@ -62,12 +62,26 @@ Scryfall `is:gamechanger`, and emits two static JSON files into `public/data`:
 Anything derived from oracle text (category, commander legality, Game Changer,
 basic-land flag) is computed **here**, so the browser never downloads oracle text.
 
-**Runtime — client only.** `src/app/page.tsx` reads the CSV in a PapaParse worker
-first, then downloads the index behind a progress bar, resolves, matches and
-renders. Results reveal progressively: precon matches land as soon as the card
-index does, and further deck sources are meant to slot in behind them. There are no API routes, no
-server components doing data work, no database. The collection file never leaves
-the browser — that promise is made in the UI, so keep it true.
+**Runtime — client only.** `CollectionProvider` reads the CSV in a PapaParse
+worker first, then downloads the index behind a progress bar, resolves, matches
+and renders. There are no API routes, no server components doing data work, no
+database. The collection file never leaves the browser — that promise is made in
+the UI, so keep it true.
+
+### Routes
+
+| Route | Shows |
+| --- | --- |
+| `/` | Upload, the commander grid, precons behind a toggle. |
+| `/commander/[slug]` | Deck variants for one commander, scored. |
+| `/commander/[slug]/[theme]` | A deck as card images. `average` is the literal for the overall list. |
+| `/precon/[id]` | The same view for a precon. |
+
+State lives in `CollectionProvider` (mounted in `layout.tsx`) so it survives
+navigation. **Nothing is persisted**, so a refresh or a shared link arrives with
+an empty collection — `useRequireCollection` sends those back to `/`. Do not fix
+that by caching the collection in browser storage without revisiting the promise
+the UI makes.
 
 ### Key files
 
@@ -82,7 +96,9 @@ the browser — that promise is made in the UI, so keep it true.
 | `src/lib/edhrec.ts` | Owned-commander list, deck variants per commander, and the on-demand average-deck fetch. The only place EDHREC decklists are touched. |
 | `src/lib/match.ts` | Completion scoring, bracket estimate, export formats. |
 | `src/components/` | Presentational only — no data fetching, no parsing. |
-| `src/app/page.tsx` | All state lives here and is passed down. |
+| `src/lib/collection-context.tsx` | All collection state, and the upload pipeline. |
+| `src/lib/images.ts` | Card images from Scryfall's `/cards/collection` (75 names per POST, CORS-open) — which is why no image URLs are stored in the index. |
+| `src/components/DeckView.tsx` | A deck as card images, owned in colour and missing dimmed. |
 
 ## Domain decisions (don't quietly reverse these)
 

@@ -1,19 +1,19 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import type { DeckMatch } from "@/lib/match";
 import { ColourPips } from "./ColourPips";
 import { CompletionRing } from "./CompletionRing";
 
-/** One precon match in the ranked results grid. */
-export function DeckCard({ match, onOpen }: { match: DeckMatch; onOpen: () => void }) {
+/** One deck in a results grid, linking through to its own page. */
+export function DeckCard({ match, href }: { match: DeckMatch; href: string }) {
   const art = match.commanders.find((c) => c.art)?.art;
   const missingCount = match.missing.reduce((sum, e) => sum + (e.needed - e.have), 0);
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
+    <Link
+      href={href}
       className="group flex w-full flex-col overflow-hidden rounded-xl border border-border bg-surface text-left transition hover:border-accent/60"
     >
       <div className="relative h-28 w-full bg-surface-2">
@@ -54,6 +54,6 @@ export function DeckCard({ match, onOpen }: { match: DeckMatch; onOpen: () => vo
           <p className="truncate text-xs text-muted">{match.deck.subtitle}</p>
         </div>
       </div>
-    </button>
+    </Link>
   );
 }
