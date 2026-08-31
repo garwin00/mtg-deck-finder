@@ -76,7 +76,7 @@ the browser — that promise is made in the UI, so keep it true.
 | `scripts/build-data.mjs` | The entire data pipeline. Most data bugs live here. |
 | `src/lib/types.ts` | `CardRecord`, `Precon`, category enum + labels/order. |
 | `src/lib/normalise.ts` | Name normalisation. **Must stay identical to the copy in `build-data.mjs`** — the alias map is built with it. |
-| `src/lib/collection.ts` | `readRows` (CSV → raw names, no index needed) then `resolveCollection` (raw names → card indices). Kept separate so the card count shows while the index downloads. |
+| `src/lib/collection.ts` | `readRows` (CSV → raw names, no index needed) then `resolveCollection` (raw names → card indices). Kept separate so the card count shows while the index downloads. Also picks up an optional `Added` date, which powers the Newest sort. |
 | `src/lib/load.ts` | Progress-reporting JSON fetch, measured against `manifest.json`. |
 | `src/lib/prices.ts` | GBP conversion, Cardmarket links, currency formatting. |
 | `src/lib/edhrec.ts` | Owned-commander list, deck variants per commander, and the on-demand average-deck fetch. The only place EDHREC decklists are touched. |
@@ -124,6 +124,11 @@ the browser — that promise is made in the UI, so keep it true.
 - **Prices are an estimate and must stay labelled as one.** One snapshot,
   cheapest printing, ignoring condition, seller and shipping — and EU sellers
   add ~20% import VAT into the UK.
+- **The colour filter means "within these colours".** A commander shows when
+  every colour it needs is selected, so picking B+G gives mono-black, mono-green
+  and Golgari but not Jund — the question a deckbuilder is actually asking.
+  Colourless is its own pip rather than being swept in by every selection, which
+  a strict subset test would do.
 - **Commander decks lead, precons are secondary.** Precons sit below the fold
   behind a Show toggle: for a real collection they mostly restate purchases.
 

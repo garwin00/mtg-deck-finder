@@ -13,10 +13,16 @@ export type Collection = {
   unknown: string[];
   /** Names that resolved to a card. */
   distinctMatched: number;
+  /**
+   * Card index -> when it was most recently added to the collection, if the
+   * export records that. Empty for formats that don't.
+   */
+  addedAt: Map<number, number>;
 };
 
 const NAME_HEADERS = ["name", "card name", "card", "cardname"];
 const QTY_HEADERS = ["quantity", "qty", "count", "amount", "number of copies"];
+const ADDED_HEADERS = ["added", "date added", "added at", "created at"];
 
 export class CsvShapeError extends Error {}
 
@@ -41,6 +47,8 @@ type Row = Record<string, string | undefined>;
 export type CollectionRows = {
   /** Raw card name -> quantity, summed across printings and finishes. */
   entries: Map<string, number>;
+  /** Raw card name -> newest "Added" timestamp seen for it. */
+  added: Map<string, number>;
   rows: number;
   totalCards: number;
 };
@@ -55,10 +63,12 @@ export type CollectionRows = {
 export function readRows(file: File): Promise<CollectionRows> {
   return new Promise((resolve, reject) => {
     const entries = new Map<string, number>();
+    const added = new Map<string, number>();
     let rows = 0;
     let totalCards = 0;
     let nameHeader: string | undefined;
     let qtyHeader: string | undefined;
+    let addedHeader: string | undefined;
     let failed = false;
 
     Papa.parse<Row>(file, {
@@ -70,6 +80,7 @@ export function readRows(file: File): Promise<CollectionRows> {
           const headers = results.meta.fields ?? [];
           nameHeader = pickHeader(headers, NAME_HEADERS);
           qtyHeader = pickHeader(headers, QTY_HEADERS);
+          addedHeader = pickHeader(headers, ADDED_HEADERS);
           if (!nameHeader) {
             failed = true;
             parser.abort();
@@ -89,11 +100,18 @@ export function readRows(file: File): Promise<CollectionRows> {
           const quantity = Number.isFinite(qty) && qty > 0 ? qty : 1;
           totalCards += quantity;
           entries.set(rawName, (entries.get(rawName) ?? 0) + quantity);
+
+          if (addedHeader) {
+            const at = Date.parse(row[addedHeader] ?? "");
+            // Several printings of a card arrive on different days; the newest
+            // is what "recently added" should mean.
+            if (Number.isFinite(at)) added.set(rawName, Math.max(added.get(rawName) ?? 0, at));
+          }
         }
       },
       complete: () => {
         if (failed) return;
-        resolve({ entries, rows, totalCards });
+        resolve({ entries, added, rows, totalCards });
       },
       error: (err) => reject(err),
     });
@@ -103,6 +121,7 @@ export function readRows(file: File): Promise<CollectionRows> {
 /** Resolve parsed rows against the card index. Synchronous and fast. */
 export function resolveCollection(parsed: CollectionRows, index: CardIndex): Collection {
   const owned = new Map<number, number>();
+  const addedAt = new Map<number, number>();
   const unknown: string[] = [];
   for (const [rawName, quantity] of parsed.entries) {
     const cardIndex = resolve_(rawName, index);
@@ -111,6 +130,8 @@ export function resolveCollection(parsed: CollectionRows, index: CardIndex): Col
       continue;
     }
     owned.set(cardIndex, (owned.get(cardIndex) ?? 0) + quantity);
+    const at = parsed.added.get(rawName);
+    if (at !== undefined) addedAt.set(cardIndex, Math.max(addedAt.get(cardIndex) ?? 0, at));
   }
   return {
     owned,
@@ -118,6 +139,7 @@ export function resolveCollection(parsed: CollectionRows, index: CardIndex): Col
     totalCards: parsed.totalCards,
     unknown,
     distinctMatched: owned.size,
+    addedAt,
   };
 }
 

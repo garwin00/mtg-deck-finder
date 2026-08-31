@@ -10,9 +10,30 @@ export type OwnedCommander = {
   name: string;
   numDecks: number;
   colours: string;
+  /** Creature types off the type line, for the typal filter. */
+  types: string[];
+  /** When it entered the collection, if the export said. */
+  addedAt?: number;
   /** Art crop, present for all but a couple of dozen commanders. */
   art?: string;
 };
+
+/**
+ * Creature subtypes from a type line: "Legendary Creature — Cat Warlock" gives
+ * ["Cat", "Warlock"]. Only creature faces count, so a Vehicle or a Planeswalker
+ * commander contributes nothing.
+ */
+export function creatureTypes(typeLine: string): string[] {
+  const types = new Set<string>();
+  for (const face of typeLine.split("//")) {
+    if (!/\bCreature\b/.test(face)) continue;
+    const [, subtypes] = face.split("—");
+    for (const word of (subtypes ?? "").trim().split(/\s+/)) {
+      if (word) types.add(word);
+    }
+  }
+  return [...types];
+}
 
 /**
  * Commanders the collection can actually field, most-built first. The
@@ -34,6 +55,8 @@ export function ownedFromCatalogue(
       name: card.n,
       numDecks: entry.n,
       colours: card.ci,
+      types: creatureTypes(card.t),
+      addedAt: collection.addedAt.get(entry.c),
       art: card.art,
     });
   }
