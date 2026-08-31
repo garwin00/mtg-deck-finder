@@ -17,9 +17,9 @@ import {
   type Collection,
   type CollectionRows,
 } from "@/lib/collection";
-import { ownedFromCatalogue, type OwnedCommander } from "@/lib/edhrec";
+import { fetchAverageDeck, ownedFromCatalogue, type OwnedCommander } from "@/lib/edhrec";
 import { fetchJsonWithProgress, type Manifest } from "@/lib/load";
-import { matchPrecons, type DeckMatch } from "@/lib/match";
+import { matchDecks, matchPrecons, type DeckMatch } from "@/lib/match";
 import type { PriceIndex } from "@/lib/prices";
 import { forgetCollection, loadCollection, rowsFrom, saveCollection } from "@/lib/persist";
 import type { CardIndex, CommanderCatalogue, PreconIndex } from "@/lib/types";
@@ -43,6 +43,14 @@ export type CollectionState = {
   load: LoadState | null;
   error?: string;
   busy: boolean;
+  /** Commander slug -> completion against its average deck, once scored. */
+  completion: Map<string, number>;
+  scoring: { done: number; total: number } | null;
+  /**
+   * Score every owned commander. One request each, so it is started by the user
+   * rather than on load.
+   */
+  scoreCommanders: () => void;
   handleFile: (file: File) => Promise<void>;
   reset: () => void;
   /** Clear it from this device as well as from memory. */
@@ -69,6 +77,8 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [pricesRequested, setPricesRequested] = useState(false);
+  const [completion, setCompletion] = useState<Map<string, number>>(new Map());
+  const [scoring, setScoring] = useState<{ done: number; total: number } | null>(null);
   const [status, setStatus] = useState<CollectionStatus>("unknown");
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -83,12 +93,57 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     setStatus("empty");
     setSavedAt(null);
     setFileName(null);
+    setCompletion(new Map());
+    setScoring(null);
   }, []);
 
   const forget = useCallback(() => {
     forgetCollection();
     reset();
   }, [reset]);
+
+  /**
+   * EDHREC's average deck is itself built from every deck for that commander,
+   * so scoring against it gives the average completion for one request rather
+   * than one per theme.
+   */
+  const scoreCommanders = useCallback(() => {
+    if (!owned || !index || !collection || scoring) return;
+    const queue = owned.filter((c) => !completion.has(c.slug));
+    if (queue.length === 0) return;
+
+    setScoring({ done: 0, total: queue.length });
+    let done = 0;
+    const found = new Map<string, number>();
+
+    const worker = async () => {
+      for (;;) {
+        const commander = queue.shift();
+        if (!commander) return;
+        try {
+          const source = await fetchAverageDeck(
+            commander,
+            { label: "Average deck", numDecks: commander.numDecks },
+            index
+          );
+          found.set(commander.slug, matchDecks([source], index, collection)[0].percent);
+        } catch {
+          // A commander without a published average deck stays unscored.
+        }
+        done++;
+        // Batch the repaints; 188 individual updates would thrash the grid.
+        if (done % 8 === 0 || queue.length === 0) {
+          setCompletion((current) => new Map([...current, ...found]));
+          setScoring({ done, total: queue.length + done });
+        }
+      }
+    };
+
+    Promise.all(Array.from({ length: 6 }, worker)).then(() => {
+      setCompletion((current) => new Map([...current, ...found]));
+      setScoring(null);
+    });
+  }, [owned, index, collection, completion, scoring]);
 
   const ensurePrices = useCallback(() => {
     if (pricesRequested) return;
@@ -230,12 +285,18 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       load,
       error,
       busy,
+      completion,
+      scoring,
+      scoreCommanders,
       handleFile,
       reset,
       forget,
       ensurePrices,
     }),
     [
+      completion,
+      scoring,
+      scoreCommanders,
       status,
       savedAt,
       fileName,

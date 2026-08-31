@@ -8,9 +8,13 @@ import { ColourPips } from "./ColourPips";
 
 type Props = {
   commanders: OwnedCommander[];
+  /** Slug -> completion, filled in as scoring progresses. */
+  completion: Map<string, number>;
+  scoring: { done: number; total: number } | null;
+  onScore: () => void;
 };
 
-type Sort = "popularity" | "name" | "added";
+type Sort = "popularity" | "name" | "added" | "completion";
 
 const COLOURS = [
   { key: "W", label: "White" },
@@ -35,7 +39,7 @@ const PIP_STYLES: Record<string, string> = {
  * EDHREC and scores them — decklists are never held locally, so this is the
  * only route to them.
  */
-export function CommanderList({ commanders }: Props) {
+export function CommanderList({ commanders, completion, scoring, onScore }: Props) {
   const [query, setQuery] = useState("");
   const [colours, setColours] = useState<Set<string>>(new Set());
   const [type, setType] = useState("");
@@ -100,10 +104,17 @@ export function CommanderList({ commanders }: Props) {
       sorted.sort((a, b) => a.name.localeCompare(b.name));
     } else if (sort === "added") {
       sorted.sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0) || a.name.localeCompare(b.name));
+    } else if (sort === "completion") {
+      // Unscored commanders sort last rather than as zero, so a partial run
+      // reads as "not yet known" instead of "you own none of it".
+      sorted.sort(
+        (a, b) => (completion.get(b.slug) ?? -1) - (completion.get(a.slug) ?? -1) ||
+          a.name.localeCompare(b.name)
+      );
     }
     // "popularity" is the order the catalogue already arrives in.
     return sorted;
-  }, [commanders, query, type, theme, colours, sort]);
+  }, [commanders, query, type, theme, colours, sort, completion]);
 
   const filtering = query !== "" || type !== "" || theme !== "" || colours.size > 0;
 
@@ -213,6 +224,7 @@ export function CommanderList({ commanders }: Props) {
           {(
             [
               ["popularity", "Popularity"],
+              ["completion", "Completion"],
               ["name", "A–Z"],
               ...(hasDates ? ([["added", "Newest"]] as const) : []),
             ] as [Sort, string][]
@@ -220,7 +232,12 @@ export function CommanderList({ commanders }: Props) {
             <button
               key={key}
               type="button"
-              onClick={() => setSort(key)}
+              onClick={() => {
+                setSort(key);
+                // Scoring is a request per commander, so it only starts when
+                // the user asks to sort by it.
+                if (key === "completion") onScore();
+              }}
               className={`rounded-md border px-2.5 py-1 ${
                 sort === key
                   ? "border-accent text-accent"
@@ -231,6 +248,12 @@ export function CommanderList({ commanders }: Props) {
             </button>
           ))}
         </div>
+
+        {scoring && (
+          <span className="text-xs text-muted">
+            Scoring {scoring.done} of {scoring.total}…
+          </span>
+        )}
 
         {filtering && (
           <button
@@ -253,14 +276,19 @@ export function CommanderList({ commanders }: Props) {
       ) : (
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {visible.map((commander) => (
-            <CommanderCard key={commander.slug} commander={commander} />
+            <CommanderCard
+              key={commander.slug}
+              commander={commander}
+              percent={completion.get(commander.slug)}
+            />
           ))}
         </div>
       )}
 
       <p className="mt-3 text-xs text-muted">
         Colour filters match an exact identity, so picking two colours excludes the mono-coloured
-        commanders that would fit inside it. Decklists are fetched from EDHREC when you open a
+        commanders that would fit inside it. Sorting by completion scores each commander against
+        its EDHREC average deck, which is one request per commander. Decklists are fetched from EDHREC when you open a
         commander, not stored here. Themes are
         EDHREC&apos;s leading commanders per theme rather than an exhaustive tagging, so a filter
         shows the best-known commanders for it rather than every one you own.
@@ -269,7 +297,13 @@ export function CommanderList({ commanders }: Props) {
   );
 }
 
-function CommanderCard({ commander }: { commander: OwnedCommander }) {
+function CommanderCard({
+  commander,
+  percent,
+}: {
+  commander: OwnedCommander;
+  percent?: number;
+}) {
   return (
     <Link
       href={`/commander/${commander.slug}`}
@@ -295,7 +329,14 @@ function CommanderCard({ commander }: { commander: OwnedCommander }) {
         <h3 className="line-clamp-2 text-sm font-medium leading-snug">{commander.name}</h3>
         <div className="mt-auto flex items-center justify-between gap-2">
           <ColourPips colours={commander.colours} />
-          <span className="text-xs text-muted">{commander.numDecks.toLocaleString()}</span>
+          {percent !== undefined && (
+            <span
+              className="text-xs tabular-nums text-muted"
+              title="How much of this commander's average deck you already own"
+            >
+              {Math.round(percent)}%
+            </span>
+          )}
         </div>
       </div>
     </Link>

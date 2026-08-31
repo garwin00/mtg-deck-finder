@@ -152,6 +152,12 @@ opened on someone else's device still has no collection —
 - **Tribes are split from archetypes with Scryfall's creature-type catalogue,**
   because EDHREC doesn't distinguish them. Their slugs are plural, so the check
   tries `zombies → zombie`, `elves → elf`, `allies → ally`.
+- **Completion sorting uses the average deck, and is user-triggered.** EDHREC's
+  average deck is itself built from every deck for that commander, so scoring
+  against it gives the average completion for one request rather than one per
+  theme. It is still a request per owned commander — 188 and about 13s on the
+  test collection — so it starts when the user picks the Completion sort, never
+  on load. Unscored commanders sort last rather than as zero.
 - **A commander is not one deck.** EDHREC publishes an average deck per theme at
   `/average-decks/<commander>/<theme>`, so opening a commander scores the
   average plus its top themes. Every variant is scored before the list renders —

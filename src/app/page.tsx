@@ -10,8 +10,21 @@ import { useCollection } from "@/lib/collection-context";
 const THRESHOLDS = [0, 50, 70, 90];
 
 export default function Home() {
-  const { collection, precons, owned, load, error, busy, savedAt, handleFile, reset, forget } =
-    useCollection();
+  const {
+    collection,
+    precons,
+    owned,
+    load,
+    error,
+    busy,
+    savedAt,
+    completion,
+    scoring,
+    scoreCommanders,
+    handleFile,
+    reset,
+    forget,
+  } = useCollection();
   const [threshold, setThreshold] = useState(50);
   const [showPrecons, setShowPrecons] = useState(false);
 
@@ -72,7 +85,14 @@ export default function Home() {
 
       {collection && precons && (
         <>
-          {owned && <CommanderList commanders={owned} />}
+          {owned && (
+            <CommanderList
+              commanders={owned}
+              completion={completion}
+              scoring={scoring}
+              onScore={scoreCommanders}
+            />
+          )}
 
           <section className="mt-10 border-t border-border pt-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
