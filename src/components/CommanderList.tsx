@@ -45,10 +45,14 @@ export function CommanderList({ commanders, opening, onSelect }: Props) {
 
   const hasDates = useMemo(() => commanders.some((c) => c.addedAt), [commanders]);
 
+  // `types` is required on OwnedCommander, so TypeScript guarantees it at every
+  // construction site. It can still be missing at runtime during development:
+  // Fast Refresh keeps the loaded collection in state across an edit, so a
+  // commander built before the field existed outlives the code that added it.
   const types = useMemo(() => {
     const counts = new Map<string, number>();
     for (const commander of commanders) {
-      for (const t of commander.types) counts.set(t, (counts.get(t) ?? 0) + 1);
+      for (const t of commander.types ?? []) counts.set(t, (counts.get(t) ?? 0) + 1);
     }
     return [...counts.entries()]
       .filter(([, n]) => n > 1)
@@ -59,7 +63,7 @@ export function CommanderList({ commanders, opening, onSelect }: Props) {
     const q = query.trim().toLowerCase();
     const filtered = commanders.filter((commander) => {
       if (q && !commander.name.toLowerCase().includes(q)) return false;
-      if (type && !commander.types.includes(type)) return false;
+      if (type && !(commander.types ?? []).includes(type)) return false;
       if (colours.size > 0) {
         // Within the selection: a commander fits if every colour it needs is
         // picked. Colourless is its own pip so it isn't swept in by every
