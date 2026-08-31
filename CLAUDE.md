@@ -107,6 +107,14 @@ the UI makes.
 - **Cards match by name, not printing.** Any printing or finish counts.
 - **DFCs are indexed under the full name and each face.** Collection lookup also
   tolerates `/`, `|` and dashes as face separators.
+- **Card images take three passes, and all three are needed.** Scryfall's
+  `/cards/collection` rejects a full double-faced name outright, so those are
+  retried by front face and validated against the name that comes back. Ten
+  cards then share their whole name with a face of a double-faced card —
+  `Lightning Bolt`, `Demonic Tutor`, `Swords to Plowshares`, `Brainstorm` — and
+  in a batch the identifier matches the double-faced card instead, so those are
+  picked off with `/cards/named?exact=`. Dropping a pass silently loses art for
+  staples. See `src/lib/images.ts`.
 - **Reversible Secret Lair printings are dropped** when a normal printing shares
   the name — left in, they shadow real cards including basic lands.
 - **Bracket = Game Changer count only** (0 → 1–2, 1–3 → 3, 4+ → 4). It is a
