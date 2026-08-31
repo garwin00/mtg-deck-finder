@@ -10,6 +10,8 @@ export type OwnedCommander = {
   name: string;
   numDecks: number;
   colours: string;
+  /** Art crop, present for all but a couple of dozen commanders. */
+  art?: string;
 };
 
 /**
@@ -32,6 +34,7 @@ export function ownedFromCatalogue(
       name: card.n,
       numDecks: entry.n,
       colours: card.ci,
+      art: card.art,
     });
   }
   return owned;
