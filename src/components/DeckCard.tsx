@@ -51,6 +51,7 @@ export function DeckCard({ match, onOpen }: { match: DeckMatch; onOpen: () => vo
           <p className="mt-2 text-xs text-muted">
             {match.ownedCards}/{match.totalCards} owned · {missingCount} to buy
           </p>
+          <p className="truncate text-xs text-muted">{match.deck.subtitle}</p>
         </div>
       </div>
     </button>

@@ -75,7 +75,9 @@ export function matchPrecons(
 export function matchDecks(
   decks: DeckSource[],
   index: CardIndex,
-  collection: Collection
+  collection: Collection,
+  /** "given" keeps the caller's order — used to browse decks by popularity. */
+  sort: "percent" | "given" = "percent"
 ): DeckMatch[] {
   const matches = decks.map((deck) => {
     const entries: DeckEntry[] = deck.cards.map(([cardIndex, needed]) => {
@@ -101,6 +103,7 @@ export function matchDecks(
     };
   });
 
+  if (sort === "given") return matches;
   return matches.sort((a, b) => b.percent - a.percent || a.deck.name.localeCompare(b.deck.name));
 }
 

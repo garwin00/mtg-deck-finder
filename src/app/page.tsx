@@ -30,6 +30,7 @@ export default function Home() {
   const [deckMatches, setDeckMatches] = useState<DeckMatch[] | null>(null);
   const [deckProgress, setDeckProgress] = useState({ loaded: 0, total: 0 });
   const [threshold, setThreshold] = useState(50);
+  const [showPrecons, setShowPrecons] = useState(false);
   const [selected, setSelected] = useState<DeckMatch | null>(null);
   const [load, setLoad] = useState<LoadState | null>(null);
   const [error, setError] = useState<string>();
@@ -127,7 +128,9 @@ export default function Home() {
         setDeckProgress({ loaded: ++loaded, total: variants.length });
       }
       if (sources.length === 0) throw new Error("EDHREC has no decklist for this commander");
-      setDeckMatches(matchDecks(sources, index, collection));
+      // fetchVariants returns the average deck then themes by deck count, so
+      // keeping that order lists them most-built first.
+      setDeckMatches(matchDecks(sources, index, collection, "given"));
     } catch (err) {
       setCommander(null);
       setError(
@@ -158,8 +161,8 @@ export default function Home() {
       <header className="mb-8">
         <h1 className="text-3xl font-semibold tracking-tight">Deck Finder</h1>
         <p className="mt-2 max-w-2xl text-muted">
-          Upload a collection export and find out which official Commander precons you are closest
-          to already owning — ranked by completion, with a list of what is missing.
+          Upload a collection export and find out which Commander decks you are closest to already
+          owning — ranked by completion, with a list of what is missing.
         </p>
       </header>
 
@@ -180,29 +183,12 @@ export default function Home() {
             <Stat label="Distinct cards matched" value={collection.distinctMatched.toLocaleString()} />
             <Stat label="Legal commanders owned" value={commanders.length.toLocaleString()} />
             <Stat
-              label="Precons over 50%"
-              value={matches.filter((m) => m.percent >= 50).length.toLocaleString()}
+              label="Commanders with decks"
+              value={(owned?.length ?? 0).toLocaleString()}
             />
           </section>
 
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted">Show precons at least</span>
-              {THRESHOLDS.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setThreshold(value)}
-                  className={`rounded-md border px-2.5 py-1 ${
-                    threshold === value
-                      ? "border-accent text-accent"
-                      : "border-border text-muted hover:text-foreground"
-                  }`}
-                >
-                  {value}%
-                </button>
-              ))}
-            </div>
+          <div className="mt-4 flex justify-end">
             <button
               type="button"
               onClick={() => {
@@ -212,6 +198,7 @@ export default function Home() {
                 setDeckMatches(null);
                 setCollection(null);
                 setIndex(null);
+                setShowPrecons(false);
               }}
               className="text-sm text-muted underline hover:text-foreground"
             >
@@ -219,42 +206,96 @@ export default function Home() {
             </button>
           </div>
 
-          <DeckSection
-            title="Precons"
-            matches={visible}
-            empty={`No precon reaches ${threshold}% with this collection.`}
-            onOpen={setSelected}
-          />
+          <div className="mt-6">
+            {owned && !commander && (
+              <CommanderList
+                commanders={owned}
+                opening={opening}
+                onSelect={handleOpenCommander}
+              />
+            )}
 
-          {owned && !commander && (
-            <CommanderList
-              commanders={owned}
-              opening={opening}
-              onSelect={handleOpenCommander}
-            />
-          )}
+            {commander && (
+              <CommanderDecks
+                commander={commander}
+                matches={deckMatches}
+                loaded={deckProgress.loaded}
+                total={deckProgress.total}
+                onOpen={setSelected}
+                onBack={backToCommanders}
+              />
+            )}
+          </div>
 
-          {commander && (
-            <CommanderDecks
-              commander={commander}
-              matches={deckMatches}
-              loaded={deckProgress.loaded}
-              total={deckProgress.total}
-              onOpen={setSelected}
-              onBack={backToCommanders}
-            />
-          )}
+          <section className="mt-10 border-t border-border pt-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+                  Official precons
+                </h2>
+                <p className="mt-1 text-xs text-muted">
+                  {matches.filter((m) => m.percent >= 90).length} of 174 near-complete — mostly ones
+                  you already own.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPrecons((open) => !open)}
+                className="rounded-md border border-border px-3 py-1 text-sm text-muted hover:text-foreground"
+              >
+                {showPrecons ? "Hide" : "Show"}
+              </button>
+            </div>
+
+            {showPrecons && (
+              <>
+                <div className="mt-4 flex items-center gap-2 text-sm">
+                  <span className="text-muted">Show precons at least</span>
+                  {THRESHOLDS.map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setThreshold(value)}
+                      className={`rounded-md border px-2.5 py-1 ${
+                        threshold === value
+                          ? "border-accent text-accent"
+                          : "border-border text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {value}%
+                    </button>
+                  ))}
+                </div>
+
+                {visible.length === 0 ? (
+                  <p className="mt-4 text-sm text-muted">
+                    No precon reaches {threshold}% with this collection.
+                  </p>
+                ) : (
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {visible.map((match) => (
+                      <DeckCard
+                        key={match.deck.id}
+                        match={match}
+                        onOpen={() => setSelected(match)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </section>
 
           <footer className="mt-10 space-y-1 text-xs text-muted">
             <p>
               Basic lands are excluded from both sides of every percentage. Card data from Scryfall,
-              decklists from MTGJSON. Bracket estimates count Game Changers only.
+              decklists from MTGJSON and EDHREC. Bracket estimates count Game Changers only.
             </p>
             {collection.unknown.length > 0 && (
               <p>
                 {collection.unknown.length.toLocaleString()} name
                 {collection.unknown.length === 1 ? "" : "s"} in your file didn&apos;t match a card in
-                the index — mostly tokens, art cards and cards no precon uses.
+                the index — mostly tokens, art cards and cards banned in Commander.
               </p>
             )}
           </footer>
@@ -263,36 +304,6 @@ export default function Home() {
 
       {selected && <DeckDetail match={selected} onClose={() => setSelected(null)} />}
     </main>
-  );
-}
-
-function DeckSection({
-  title,
-  matches,
-  empty,
-  onOpen,
-}: {
-  title: string;
-  matches: DeckMatch[];
-  empty: string;
-  onOpen: (match: DeckMatch) => void;
-}) {
-  return (
-    <section className="mt-8">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{title}</h2>
-        <span className="text-xs text-muted">{matches.length}</span>
-      </div>
-      {matches.length === 0 ? (
-        <p className="mt-3 text-sm text-muted">{empty}</p>
-      ) : (
-        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {matches.map((match) => (
-            <DeckCard key={`${match.deck.kind}:${match.deck.id}`} match={match} onOpen={() => onOpen(match)} />
-          ))}
-        </div>
-      )}
-    </section>
   );
 }
 

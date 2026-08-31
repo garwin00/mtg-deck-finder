@@ -105,8 +105,12 @@ the browser — that promise is made in the UI, so keep it true.
   deciding the redistribution question first.
 - **A commander is not one deck.** EDHREC publishes an average deck per theme at
   `/average-decks/<commander>/<theme>`, so opening a commander scores the
-  average plus its top themes and ranks them. Browsing blind — showing deck
-  names without completion — would mean opening each one to learn anything.
+  average plus its top themes. Every variant is scored before the list renders —
+  showing deck names without completion would mean opening each to learn
+  anything — but the list is ordered by **popularity**, not completion, so pass
+  `matchDecks(..., "given")` and keep `fetchVariants`' order.
+- **Commander decks lead, precons are secondary.** Precons sit below the fold
+  behind a Show toggle: for a real collection they mostly restate purchases.
 
 ## Conventions
 

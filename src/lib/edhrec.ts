@@ -128,8 +128,10 @@ export async function fetchAverageDeck(
 
   return {
     id: `${commander.slug}:${variant.theme ?? "average"}`,
-    name: variant.theme ? `${commander.name} · ${variant.label}` : commander.name,
-    subtitle: `${variant.label} · ${variant.numDecks.toLocaleString()} decks on EDHREC`,
+    // The card shows name over commander, the way a precon card does, so the
+    // deck's name is the theme rather than a repeat of the commander.
+    name: variant.label,
+    subtitle: `${variant.numDecks.toLocaleString()} decks on EDHREC`,
     kind: "commander",
     commanders: commanders.length > 0 ? commanders : [commander.cardIndex],
     basics,
