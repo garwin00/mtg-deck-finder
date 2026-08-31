@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { DeckView } from "@/components/DeckView";
 import { useRequireCollection } from "@/components/CollectionGate";
-import { fetchAverageDeck, fetchVariants } from "@/lib/edhrec";
+import { fetchAverageDeck, fetchCommanderData, type CardStat } from "@/lib/edhrec";
 import { matchDecks, type DeckMatch } from "@/lib/match";
 
 export default function CommanderDeckPage({
@@ -15,9 +15,12 @@ export default function CommanderDeckPage({
   const state = useRequireCollection();
   // Keyed by route so a stale deck can't render against a different one, and
   // so the effect never clears state synchronously.
-  const [result, setResult] = useState<{ key: string; match?: DeckMatch; error?: string } | null>(
-    null
-  );
+  const [result, setResult] = useState<{
+    key: string;
+    match?: DeckMatch;
+    stats?: Map<string, CardStat>;
+    error?: string;
+  } | null>(null);
   const key = `${slug}/${theme}`;
 
   const commander = state?.owned?.find((c) => c.slug === slug);
@@ -37,7 +40,7 @@ export default function CommanderDeckPage({
       try {
         // The variant carries the label and deck count the header shows, and a
         // deep link arrives without them.
-        const variants = await fetchVariants(commander);
+        const { variants, stats } = await fetchCommanderData(commander);
         const variant =
           variants.find((v) => (v.theme ?? "average") === theme) ??
           (theme === "average" ? variants[0] : undefined);
@@ -45,7 +48,7 @@ export default function CommanderDeckPage({
 
         const source = await fetchAverageDeck(commander, variant, index);
         if (cancelled) return;
-        setResult({ key, match: matchDecks([source], index, collection)[0] });
+        setResult({ key, match: matchDecks([source], index, collection)[0], stats });
       } catch (err) {
         if (!cancelled) {
           setResult({ key, error: err instanceof Error ? err.message : String(err) });
@@ -76,6 +79,7 @@ export default function CommanderDeckPage({
         <DeckView
           match={current.match}
           prices={state.prices}
+          stats={current.stats}
           backHref={`/commander/${slug}`}
           backLabel={`Back to ${commander.name}`}
         />

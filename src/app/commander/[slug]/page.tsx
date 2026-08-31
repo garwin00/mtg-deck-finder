@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { CommanderDecks } from "@/components/CommanderDecks";
 import { useRequireCollection } from "@/components/CollectionGate";
-import { fetchAverageDeck, fetchVariants } from "@/lib/edhrec";
+import { fetchAverageDeck, fetchCommanderData } from "@/lib/edhrec";
 import { matchDecks, type DeckMatch } from "@/lib/match";
 
 export default function CommanderPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -29,7 +29,7 @@ export default function CommanderPage({ params }: { params: Promise<{ slug: stri
 
     (async () => {
       try {
-        const variants = await fetchVariants(commander);
+        const { variants } = await fetchCommanderData(commander);
         if (cancelled) return;
         setProgress({ slug: commander.slug, loaded: 0, total: variants.length });
 

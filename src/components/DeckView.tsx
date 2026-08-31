@@ -3,40 +3,46 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import type { CardStat } from "@/lib/edhrec";
 import type { DeckEntry, DeckMatch } from "@/lib/match";
 import { missingAsCsv, missingAsText } from "@/lib/match";
 import { cardmarketUrl, formatGbp, gbpPrice, type PriceIndex } from "@/lib/prices";
-import { fetchCardImages } from "@/lib/images";
+import { fetchCardDetails, setIconUrl, type CardDetail } from "@/lib/images";
 import { CATEGORY_LABELS, CATEGORY_ORDER, type Category } from "@/lib/types";
 import { ColourPips } from "./ColourPips";
 import { CompletionRing } from "./CompletionRing";
 
-const NO_IMAGES = new Map<string, string>();
+const NO_DETAILS = new Map<string, CardDetail>();
+
+/** Above this, a card is specific to the commander rather than a general staple. */
+const SIGNATURE_SYNERGY = 0.25;
 
 type Props = {
   match: DeckMatch;
   prices: PriceIndex | null;
+  /** Per-card usage from EDHREC. Absent for precons. */
+  stats?: Map<string, CardStat>;
   backHref: string;
   backLabel: string;
 };
 
 /** A whole deck as card images, owned in colour and missing dimmed. */
-export function DeckView({ match, prices, backHref, backLabel }: Props) {
-  const [loadedImages, setLoadedImages] = useState<{
+export function DeckView({ match, prices, stats, backHref, backLabel }: Props) {
+  const [loadedDetails, setLoadedDetails] = useState<{
     key: string;
-    images: Map<string, string>;
+    details: Map<string, CardDetail>;
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Keyed by deck so switching decks shows no images rather than the previous
   // deck's, without clearing state synchronously inside the effect.
-  const images = loadedImages?.key === match.deck.id ? loadedImages.images : NO_IMAGES;
+  const details = loadedDetails?.key === match.deck.id ? loadedDetails.details : NO_DETAILS;
 
   useEffect(() => {
     let cancelled = false;
-    fetchCardImages(match.entries.map((e) => e.card.n))
+    fetchCardDetails(match.entries.map((e) => e.card.n))
       .then((loaded) => {
-        if (!cancelled) setLoadedImages({ key: match.deck.id, images: loaded });
+        if (!cancelled) setLoadedDetails({ key: match.deck.id, details: loaded });
       })
       .catch(() => {
         // Without images the deck still reads as a list of names.
@@ -129,15 +135,22 @@ export function DeckView({ match, prices, backHref, backLabel }: Props) {
       <div className="mt-8 flex flex-col gap-8 lg:flex-row">
         <div className="min-w-0 flex-1 space-y-8">
           {commanderEntries.length > 0 && (
-            <CardGroup title="Commander" entries={commanderEntries} images={images} prices={prices} />
+            <CardGroup
+              title="Commander"
+              entries={commanderEntries}
+              details={details}
+              prices={prices}
+              stats={stats}
+            />
           )}
           {grouped.map(({ category, entries }) => (
             <CardGroup
               key={category}
               title={CATEGORY_LABELS[category]}
               entries={entries}
-              images={images}
+              details={details}
               prices={prices}
+              stats={stats}
             />
           ))}
         </div>
@@ -233,26 +246,29 @@ export function DeckView({ match, prices, backHref, backLabel }: Props) {
 function CardGroup({
   title,
   entries,
-  images,
+  details,
   prices,
+  stats,
 }: {
   title: string;
   entries: DeckEntry[];
-  images: Map<string, string>;
+  details: Map<string, CardDetail>;
   prices: PriceIndex | null;
+  stats?: Map<string, CardStat>;
 }) {
   return (
     <section>
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
         {title} ({entries.reduce((s, e) => s + e.needed, 0)})
       </h2>
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {entries.map((entry) => (
           <CardTile
             key={entry.cardIndex}
             entry={entry}
-            image={images.get(entry.card.n)}
+            detail={details.get(entry.card.n)}
             prices={prices}
+            stat={stats?.get(entry.card.n)}
           />
         ))}
       </div>
@@ -262,16 +278,27 @@ function CardGroup({
 
 function CardTile({
   entry,
-  image,
+  detail,
   prices,
+  stat,
 }: {
   entry: DeckEntry;
-  image?: string;
+  detail?: CardDetail;
   prices: PriceIndex | null;
+  stat?: CardStat;
 }) {
   const owned = entry.have >= entry.needed;
+  const partial = !owned && entry.have > 0;
   const price = prices ? gbpPrice(prices, entry.cardIndex) : undefined;
   const url = prices ? cardmarketUrl(prices, entry.cardIndex) : undefined;
+  const signature = stat !== undefined && stat.synergy >= SIGNATURE_SYNERGY;
+
+  const usage =
+    stat &&
+    `In ${Math.round(stat.inclusion * 100)}% of decks for this commander` +
+      (signature
+        ? `, and ${Math.round(stat.synergy * 100)}% more common here than in decks generally`
+        : "");
 
   const tile = (
     <>
@@ -281,19 +308,19 @@ function CardTile({
         }`}
       >
         {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
-        {image && (
+        {detail?.image && (
           <Image
-            src={image}
+            src={detail.image}
             alt={entry.card.n}
             fill
             unoptimized
             loading="lazy"
-            sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 20vw"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className="object-cover"
           />
         )}
-        {!image && (
-          <span className="absolute inset-0 grid place-items-center p-2 text-center text-[11px] text-muted">
+        {!detail?.image && (
+          <span className="absolute inset-0 grid place-items-center p-2 text-center text-xs text-muted">
             {entry.card.n}
           </span>
         )}
@@ -308,15 +335,51 @@ function CardTile({
           </span>
         )}
       </div>
-      <p className={`mt-1 truncate text-[11px] ${owned ? "text-muted" : "text-[#e07a6a]"}`}>
-        {owned
-          ? entry.have < entry.needed
-            ? `${entry.have} of ${entry.needed}`
-            : "Owned"
-          : price !== undefined
-            ? formatGbp(price)
-            : "Missing"}
-      </p>
+
+      <div className="mt-1.5 space-y-0.5">
+        <div className="flex items-center gap-1.5">
+          <p className="min-w-0 flex-1 truncate text-xs font-medium" title={entry.card.n}>
+            {entry.card.n}
+          </p>
+          {detail?.set && (
+            <Image
+              src={setIconUrl(detail.set)}
+              alt=""
+              width={12}
+              height={12}
+              unoptimized
+              title={detail.setName}
+              // The icons ship unfilled, so they'd be black on black.
+              className="shrink-0 opacity-60 invert"
+            />
+          )}
+        </div>
+
+        <p className="truncate text-[11px] text-muted" title={usage}>
+          {stat ? (
+            <>
+              {Math.round(stat.inclusion * 100)}% of decks
+              {signature && <span className="text-accent"> · signature</span>}
+            </>
+          ) : (
+            (detail?.rarity ?? entry.card.r)
+          )}
+        </p>
+
+        <p
+          className={`truncate text-[11px] ${
+            owned ? "text-muted" : partial ? "text-muted" : "text-[#e07a6a]"
+          }`}
+        >
+          {owned
+            ? "Owned"
+            : partial
+              ? `${entry.have} of ${entry.needed} owned`
+              : price !== undefined
+                ? `${formatGbp(price)} to buy`
+                : "Missing"}
+        </p>
+      </div>
     </>
   );
 

@@ -72,6 +72,30 @@ type AverageDeck = {
 
 type CommanderPage = {
   tag_counts?: { slug: string; value: string; count: number }[];
+  container?: {
+    json_dict?: {
+      cardlists?: {
+        cardviews: { name: string; num_decks: number; potential_decks: number; synergy: number }[];
+      }[];
+    };
+  };
+};
+
+/** How a card is actually used, which the card face can't tell you. */
+export type CardStat = {
+  /** Share of this commander's decks running it, 0-1. */
+  inclusion: number;
+  /**
+   * How much more often it appears here than in decks that could play it.
+   * High values mark cards specific to this commander rather than staples.
+   */
+  synergy: number;
+};
+
+export type CommanderData = {
+  variants: DeckVariant[];
+  /** Card name -> usage. Absent for cards EDHREC's lists don't reach. */
+  stats: Map<string, CardStat>;
 };
 
 /** One buildable deck for a commander: the consensus list, or a themed one. */
@@ -87,14 +111,14 @@ const MIN_THEME_DECKS = 25;
 const MAX_THEMES = 6;
 
 /**
- * The decks worth offering for a commander: the overall average plus its most
- * built themes. EDHREC publishes an average deck per theme at
- * /average-decks/<commander>/<theme>.
+ * One fetch of a commander's page gives both the decks worth offering — the
+ * overall average plus its most built themes, published at
+ * /average-decks/<commander>/<theme> — and how often each card is played.
  */
-export async function fetchVariants(commander: OwnedCommander): Promise<DeckVariant[]> {
-  const variants: DeckVariant[] = [
-    { label: "Average deck", numDecks: commander.numDecks },
-  ];
+export async function fetchCommanderData(commander: OwnedCommander): Promise<CommanderData> {
+  const variants: DeckVariant[] = [{ label: "Average deck", numDecks: commander.numDecks }];
+  const stats = new Map<string, CardStat>();
+
   try {
     const res = await fetch(`https://json.edhrec.com/pages/commanders/${commander.slug}.json`);
     if (res.ok) {
@@ -103,11 +127,20 @@ export async function fetchVariants(commander: OwnedCommander): Promise<DeckVari
         if (tag.count < MIN_THEME_DECKS || variants.length > MAX_THEMES) break;
         variants.push({ theme: tag.slug, label: tag.value, numDecks: tag.count });
       }
+      for (const list of page.container?.json_dict?.cardlists ?? []) {
+        for (const card of list.cardviews) {
+          if (stats.has(card.name) || !card.potential_decks) continue;
+          stats.set(card.name, {
+            inclusion: card.num_decks / card.potential_decks,
+            synergy: card.synergy,
+          });
+        }
+      }
     }
   } catch {
     // No themes is fine — the average deck still stands on its own.
   }
-  return variants;
+  return { variants, stats };
 }
 
 /**
