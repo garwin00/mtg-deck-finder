@@ -1,0 +1,27 @@
+name: Refresh card data
+
+on:
+  schedule:
+    # Weekly; Scryfall bulk updates daily but precons only move with set releases.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run build:data
+      - name: Commit refreshed index
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/data
+          git diff --staged --quiet || git commit -m "Refresh card and precon data"
+          git push

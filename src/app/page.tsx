@@ -1,69 +1,168 @@
-import Image from "next/image";
+"use client";
+
+import { useMemo, useState } from "react";
+import { Dropzone } from "@/components/Dropzone";
+import { DeckCard } from "@/components/DeckCard";
+import { DeckDetail } from "@/components/DeckDetail";
+import { CsvShapeError, parseCollection, type Collection } from "@/lib/collection";
+import { matchPrecons, ownedCommanders, type DeckMatch } from "@/lib/match";
+import type { CardIndex, PreconIndex } from "@/lib/types";
+
+const THRESHOLDS = [0, 50, 70, 90];
 
 export default function Home() {
+  const [collection, setCollection] = useState<Collection | null>(null);
+  const [index, setIndex] = useState<CardIndex | null>(null);
+  const [matches, setMatches] = useState<DeckMatch[] | null>(null);
+  const [threshold, setThreshold] = useState(50);
+  const [selected, setSelected] = useState<DeckMatch | null>(null);
+  const [status, setStatus] = useState<string>();
+  const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+
+  const handleFile = async (file: File) => {
+    setBusy(true);
+    setError(undefined);
+    setSelected(null);
+    try {
+      setStatus("Loading card database…");
+      const [cards, precons] = await Promise.all([
+        fetch("/data/cards.json").then((r) => r.json() as Promise<CardIndex>),
+        fetch("/data/precons.json").then((r) => r.json() as Promise<PreconIndex>),
+      ]);
+      setIndex(cards);
+
+      setStatus(`Reading ${file.name}…`);
+      const parsed = await parseCollection(file, cards);
+      setCollection(parsed);
+
+      setStatus("Matching against precons…");
+      setMatches(matchPrecons(precons, cards, parsed));
+      setStatus(undefined);
+    } catch (err) {
+      setMatches(null);
+      setCollection(null);
+      setError(
+        err instanceof CsvShapeError
+          ? err.message
+          : `Couldn't read that file: ${err instanceof Error ? err.message : String(err)}`
+      );
+      setStatus(undefined);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const commanders = useMemo(
+    () => (index && collection ? ownedCommanders(index, collection) : []),
+    [index, collection]
+  );
+
+  const visible = useMemo(
+    () => (matches ?? []).filter((m) => m.percent >= threshold),
+    [matches, threshold]
+  );
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+    <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
+      <header className="mb-8">
+        <h1 className="text-3xl font-semibold tracking-tight">Deck Finder</h1>
+        <p className="mt-2 max-w-2xl text-muted">
+          Upload a collection export and find out which official Commander precons you are closest
+          to already owning — ranked by completion, with a list of what is missing.
+        </p>
+      </header>
+
+      {!matches && (
+        <Dropzone onFile={handleFile} busy={busy} status={status} />
+      )}
+
+      {error && (
+        <p className="mt-4 rounded-lg border border-[#e07a6a]/40 bg-[#e07a6a]/10 p-4 text-sm">
+          {error}
+        </p>
+      )}
+
+      {collection && matches && (
+        <>
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Stat label="Cards in collection" value={collection.totalCards.toLocaleString()} />
+            <Stat label="Distinct cards matched" value={collection.distinctMatched.toLocaleString()} />
+            <Stat label="Legal commanders owned" value={commanders.length.toLocaleString()} />
+            <Stat
+              label="Precons over 50%"
+              value={matches.filter((m) => m.percent >= 50).length.toLocaleString()}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+          </section>
+
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted">Show precons at least</span>
+              {THRESHOLDS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setThreshold(value)}
+                  className={`rounded-md border px-2.5 py-1 ${
+                    threshold === value
+                      ? "border-accent text-accent"
+                      : "border-border text-muted hover:text-foreground"
+                  }`}
+                >
+                  {value}%
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setMatches(null);
+                setCollection(null);
+              }}
+              className="text-sm text-muted underline hover:text-foreground"
+            >
+              Upload a different file
+            </button>
+          </div>
+
+          <section className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {visible.map((match) => (
+              <DeckCard key={match.deck.id} match={match} onOpen={() => setSelected(match)} />
+            ))}
+          </section>
+
+          {visible.length === 0 && (
+            <p className="mt-6 text-sm text-muted">
+              No precon reaches {threshold}% with this collection. Try a lower threshold.
+            </p>
+          )}
+
+          <footer className="mt-10 space-y-1 text-xs text-muted">
+            <p>
+              Basic lands are excluded from both sides of every percentage. Card data from Scryfall,
+              decklists from MTGJSON. Bracket estimates count Game Changers only.
+            </p>
+            {collection.unknown.length > 0 && (
+              <p>
+                {collection.unknown.length.toLocaleString()} name
+                {collection.unknown.length === 1 ? "" : "s"} in your file didn&apos;t match a card in
+                the index — mostly tokens, art cards and cards no precon uses.
+              </p>
+            )}
+          </footer>
+        </>
+      )}
+
+      {selected && <DeckDetail match={selected} onClose={() => setSelected(null)} />}
+    </main>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface p-4">
+      <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
+      <p className="mt-1 text-2xl font-semibold">{value}</p>
     </div>
   );
 }
