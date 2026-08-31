@@ -74,7 +74,7 @@ the browser — that promise is made in the UI, so keep it true.
 | `src/lib/normalise.ts` | Name normalisation. **Must stay identical to the copy in `build-data.mjs`** — the alias map is built with it. |
 | `src/lib/collection.ts` | `readRows` (CSV → raw names, no index needed) then `resolveCollection` (raw names → card indices). Kept separate so the card count shows while the index downloads. |
 | `src/lib/load.ts` | Progress-reporting JSON fetch, measured against `manifest.json`. |
-| `src/lib/edhrec.ts` | Owned-commander list, and the on-demand average-deck fetch. The only place EDHREC decklists are touched. |
+| `src/lib/edhrec.ts` | Owned-commander list, deck variants per commander, and the on-demand average-deck fetch. The only place EDHREC decklists are touched. |
 | `src/lib/match.ts` | Completion scoring, bracket estimate, export formats. |
 | `src/components/` | Presentational only — no data fetching, no parsing. |
 | `src/app/page.tsx` | All state lives here and is passed down. |
@@ -100,9 +100,13 @@ the browser — that promise is made in the UI, so keep it true.
   product you own or don't. Commander matching is where the discovery is.
 - **EDHREC decklists are never crawled in bulk or stored here.** The build only
   fetches 32 colour-bucket listings for slugs and deck counts; the browser
-  fetches one average deck, from EDHREC directly, when the user opens a
-  commander. Their JSON is CORS-open and cacheable. Do not reintroduce a
-  decklist corpus without deciding the redistribution question first.
+  fetches decklists from EDHREC directly when the user opens a commander. Their
+  JSON is CORS-open and cacheable. Do not reintroduce a decklist corpus without
+  deciding the redistribution question first.
+- **A commander is not one deck.** EDHREC publishes an average deck per theme at
+  `/average-decks/<commander>/<theme>`, so opening a commander scores the
+  average plus its top themes and ranks them. Browsing blind — showing deck
+  names without completion — would mean opening each one to learn anything.
 
 ## Conventions
 

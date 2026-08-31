@@ -7,7 +7,13 @@ import { DeckDetail } from "@/components/DeckDetail";
 import { LoadingPanel, type LoadState } from "@/components/LoadingPanel";
 import { CsvShapeError, readRows, resolveCollection, type Collection } from "@/lib/collection";
 import { CommanderList } from "@/components/CommanderList";
-import { fetchAverageDeck, ownedFromCatalogue, type OwnedCommander } from "@/lib/edhrec";
+import { CommanderDecks } from "@/components/CommanderDecks";
+import {
+  fetchAverageDeck,
+  fetchVariants,
+  ownedFromCatalogue,
+  type OwnedCommander,
+} from "@/lib/edhrec";
 import { fetchJsonWithProgress, type Manifest } from "@/lib/load";
 import { matchDecks, matchPrecons, ownedCommanders, type DeckMatch } from "@/lib/match";
 import type { CardIndex, CommanderCatalogue, PreconIndex } from "@/lib/types";
@@ -20,6 +26,9 @@ export default function Home() {
   const [matches, setMatches] = useState<DeckMatch[] | null>(null);
   const [owned, setOwned] = useState<OwnedCommander[] | null>(null);
   const [opening, setOpening] = useState<string>();
+  const [commander, setCommander] = useState<OwnedCommander | null>(null);
+  const [deckMatches, setDeckMatches] = useState<DeckMatch[] | null>(null);
+  const [deckProgress, setDeckProgress] = useState({ loaded: 0, total: 0 });
   const [threshold, setThreshold] = useState(50);
   const [selected, setSelected] = useState<DeckMatch | null>(null);
   const [load, setLoad] = useState<LoadState | null>(null);
@@ -32,6 +41,8 @@ export default function Home() {
     setSelected(null);
     setMatches(null);
     setOwned(null);
+    setCommander(null);
+    setDeckMatches(null);
     setCollection(null);
     setLoad({ fileName: file.name, received: 0, total: 0, label: "Reading your collection…" });
 
@@ -91,20 +102,45 @@ export default function Home() {
     }
   };
 
-  const handleOpenCommander = async (commander: OwnedCommander) => {
+  /**
+   * Open a commander: pull its deck variants from EDHREC and score every one,
+   * so the list that appears is ranked by how close the collection already is.
+   */
+  const handleOpenCommander = async (picked: OwnedCommander) => {
     if (!index || !collection) return;
-    setOpening(commander.slug);
+    setOpening(picked.slug);
     setError(undefined);
+    setDeckMatches(null);
     try {
-      const source = await fetchAverageDeck(commander, index);
-      setSelected(matchDecks([source], index, collection)[0]);
+      const variants = await fetchVariants(picked);
+      setCommander(picked);
+      setDeckProgress({ loaded: 0, total: variants.length });
+
+      const sources = [];
+      let loaded = 0;
+      for (const variant of variants) {
+        try {
+          sources.push(await fetchAverageDeck(picked, variant, index));
+        } catch {
+          // A theme without a published average deck just isn't offered.
+        }
+        setDeckProgress({ loaded: ++loaded, total: variants.length });
+      }
+      if (sources.length === 0) throw new Error("EDHREC has no decklist for this commander");
+      setDeckMatches(matchDecks(sources, index, collection));
     } catch (err) {
+      setCommander(null);
       setError(
-        `Couldn't load ${commander.name} from EDHREC: ${err instanceof Error ? err.message : String(err)}`
+        `Couldn't load ${picked.name} from EDHREC: ${err instanceof Error ? err.message : String(err)}`
       );
     } finally {
       setOpening(undefined);
     }
+  };
+
+  const backToCommanders = () => {
+    setCommander(null);
+    setDeckMatches(null);
   };
 
   const commanders = useMemo(
@@ -172,6 +208,8 @@ export default function Home() {
               onClick={() => {
                 setMatches(null);
                 setOwned(null);
+                setCommander(null);
+                setDeckMatches(null);
                 setCollection(null);
                 setIndex(null);
               }}
@@ -188,11 +226,22 @@ export default function Home() {
             onOpen={setSelected}
           />
 
-          {owned && (
+          {owned && !commander && (
             <CommanderList
               commanders={owned}
               opening={opening}
               onSelect={handleOpenCommander}
+            />
+          )}
+
+          {commander && (
+            <CommanderDecks
+              commander={commander}
+              matches={deckMatches}
+              loaded={deckProgress.loaded}
+              total={deckProgress.total}
+              onOpen={setSelected}
+              onBack={backToCommanders}
             />
           )}
 

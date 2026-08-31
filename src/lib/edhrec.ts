@@ -44,6 +44,46 @@ type AverageDeck = {
   };
 };
 
+type CommanderPage = {
+  tag_counts?: { slug: string; value: string; count: number }[];
+};
+
+/** One buildable deck for a commander: the consensus list, or a themed one. */
+export type DeckVariant = {
+  /** Undefined for the plain average deck. */
+  theme?: string;
+  label: string;
+  numDecks: number;
+};
+
+/** Themes with fewer decks than this are noise rather than a real archetype. */
+const MIN_THEME_DECKS = 25;
+const MAX_THEMES = 6;
+
+/**
+ * The decks worth offering for a commander: the overall average plus its most
+ * built themes. EDHREC publishes an average deck per theme at
+ * /average-decks/<commander>/<theme>.
+ */
+export async function fetchVariants(commander: OwnedCommander): Promise<DeckVariant[]> {
+  const variants: DeckVariant[] = [
+    { label: "Average deck", numDecks: commander.numDecks },
+  ];
+  try {
+    const res = await fetch(`https://json.edhrec.com/pages/commanders/${commander.slug}.json`);
+    if (res.ok) {
+      const page = (await res.json()) as CommanderPage;
+      for (const tag of page.tag_counts ?? []) {
+        if (tag.count < MIN_THEME_DECKS || variants.length > MAX_THEMES) break;
+        variants.push({ theme: tag.slug, label: tag.value, numDecks: tag.count });
+      }
+    }
+  } catch {
+    // No themes is fine — the average deck still stands on its own.
+  }
+  return variants;
+}
+
 /**
  * Fetch one commander's average deck straight from EDHREC and resolve it
  * against our card index.
@@ -54,9 +94,11 @@ type AverageDeck = {
  */
 export async function fetchAverageDeck(
   commander: OwnedCommander,
+  variant: DeckVariant,
   index: CardIndex
 ): Promise<DeckSource> {
-  const res = await fetch(`https://json.edhrec.com/pages/average-decks/${commander.slug}.json`);
+  const path = variant.theme ? `${commander.slug}/${variant.theme}` : commander.slug;
+  const res = await fetch(`https://json.edhrec.com/pages/average-decks/${path}.json`);
   if (!res.ok) throw new Error(`EDHREC returned ${res.status} for ${commander.name}`);
   const payload = (await res.json()) as AverageDeck;
 
@@ -85,9 +127,9 @@ export async function fetchAverageDeck(
     .filter((i): i is number => i !== undefined);
 
   return {
-    id: commander.slug,
-    name: commander.name,
-    subtitle: `Average deck · ${commander.numDecks.toLocaleString()} on EDHREC`,
+    id: `${commander.slug}:${variant.theme ?? "average"}`,
+    name: variant.theme ? `${commander.name} · ${variant.label}` : commander.name,
+    subtitle: `${variant.label} · ${variant.numDecks.toLocaleString()} decks on EDHREC`,
     kind: "commander",
     commanders: commanders.length > 0 ? commanders : [commander.cardIndex],
     basics,

@@ -5,7 +5,8 @@ preconstructed decks you are closest to already owning — ranked by completion,
 with a missing-cards shopping list and an estimated Commander Bracket.
 
 Two ways in: official precons scored automatically, and any commander in your
-collection scored on demand against its EDHREC average deck.
+collection opened up into its buildable decks — the EDHREC average plus its top
+themes — each ranked by how close you already are.
 
 ## Running it
 
