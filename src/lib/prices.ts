@@ -7,8 +7,14 @@ export type PriceIndex = {
   /** ECB daily reference rate. */
   gbpPerEur: number;
   rateDate: string | null;
-  /** EUR cents, 0 where Scryfall has no price for any printing. */
+  /**
+   * Cheapest printing per retailer, in cents. Scryfall source these from their
+   * affiliates: cents is Cardmarket, usd is TCGplayer, tix is Cardhoarder.
+   * 0 where no printing has a price.
+   */
   cents: number[];
+  usd: number[];
+  tix: number[];
   /** Cardmarket idProduct for the printing quoted, 0 if unknown. */
   product: number[];
 };
@@ -20,9 +26,29 @@ export function gbpPrice(prices: PriceIndex, cardIndex: number): number | undefi
   return (cents / 100) * prices.gbpPerEur;
 }
 
+/** TCGplayer price in dollars, or undefined. */
+export function usdPrice(prices: PriceIndex, cardIndex: number): number | undefined {
+  const cents = prices.usd[cardIndex];
+  return cents ? cents / 100 : undefined;
+}
+
+/** Cardhoarder price in MTGO tickets, or undefined. */
+export function tixPrice(prices: PriceIndex, cardIndex: number): number | undefined {
+  const cents = prices.tix[cardIndex];
+  return cents ? cents / 100 : undefined;
+}
+
 export function cardmarketUrl(prices: PriceIndex, cardIndex: number): string | undefined {
   const id = prices.product[cardIndex];
   return id ? `https://www.cardmarket.com/en/Magic/Products?idProduct=${id}` : undefined;
+}
+
+export function formatUsd(amount: number): string {
+  return amount.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: amount >= 100 ? 0 : 2,
+  });
 }
 
 export function formatGbp(amount: number): string {

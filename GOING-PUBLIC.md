@@ -114,9 +114,20 @@ forbids paywalling their data.
 - **No tests.** The matching logic and the name-resolution edge cases —
   double-faced cards, the ten name collisions, banned cards — are exactly what
   a public tool cannot afford to regress, and there is no runner installed.
-- **Bulk buying assumes Cardmarket.** The button copies a wants list and opens
-  their site, which is right for a UK or EU buyer and wrong elsewhere.
-  TCGplayer's `massentry?productline=Magic&c=…` deep link is the US equivalent
-  and works; a public release would want to offer both.
+- **More retailers means affiliate programmes, not scraping.** Cardmarket,
+  TCGplayer and Cardhoarder are covered free because Scryfall report their
+  affiliates' prices. Everyone else needs a partnership. Checked and rejected:
+  Magic Madhouse and Chaos Cards publish no structured prices and no bulk entry
+  point, Manaleak's robots.txt sets `Crawl-delay: 50` — a 100-card list would
+  take 83 minutes — and Total Cards' Shopify feed is a whole-catalogue dump
+  where Magic is a minority. None of them send CORS headers either, so any of
+  this needs a backend the app does not have. The sanctioned route is Awin or
+  Webgains for the UK stores and direct programmes for Card Kingdom and Mana
+  Pool, which is how Moxfield offers seven. That pays rather than costs, and
+  needs a feed ingester per partner.
+- **Scryfall's affiliate links are not being passed through.** Their
+  `purchase_uris` carry Scryfall's referral codes and are how they fund the data
+  we depend on; we link to Cardmarket by product id instead, which drops it.
+  Worth either honouring theirs or joining the programmes directly.
 - **Prices carry a UK-specific caveat.** "EU sellers add around 20% import VAT"
   is wrong for a visitor outside the UK, and the whole figure is GBP-only.

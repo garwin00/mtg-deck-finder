@@ -1,6 +1,11 @@
 /**
- * Builds the price index: the cheapest EUR printing of every card, plus the
- * Cardmarket product it belongs to.
+ * Builds the price index: the cheapest printing of every card at each of the
+ * three retailers Scryfall reports, plus the Cardmarket product it belongs to.
+ *
+ * Scryfall's prices come from their affiliates — usd from TCGplayer, eur from
+ * Cardmarket, tix from Cardhoarder — so three retailers' prices arrive in the
+ * one bulk file we already stream. The cheapest printing is tracked per
+ * currency, since it isn't always the same printing.
  *
  * Uses the `default_cards` bulk file rather than `oracle_cards` because the
  * latter picks one arbitrary printing per card, and its price is the wrong
@@ -92,9 +97,11 @@ async function main() {
   const { gbpPerEur, rateDate } = await fetchGbpPerEur();
   log(`ECB rate ${rateDate}: 1 EUR = ${gbpPerEur} GBP`);
 
-  // Cheapest EUR printing per card in our index, and the Cardmarket product
-  // that printing belongs to, so the link matches the price quoted.
+  // Cheapest printing per card per currency, and the Cardmarket product the
+  // EUR price belongs to, so that link matches the price quoted.
   const cents = new Array(index.cards.length).fill(0);
+  const usd = new Array(index.cards.length).fill(0);
+  const tix = new Array(index.cards.length).fill(0);
   const product = new Array(index.cards.length).fill(0);
 
   let seen = 0;
@@ -106,31 +113,43 @@ async function main() {
       skipped++;
       continue;
     }
-    const eur = Number.parseFloat(card.prices?.eur ?? "");
-    if (!Number.isFinite(eur) || eur <= 0) continue;
-
     const cardIndex = aliasKeys(card.name)
       .map((k) => aliases[k])
       .find((i) => i !== undefined);
     if (cardIndex === undefined) continue;
 
-    const value = Math.round(eur * 100);
-    if (cents[cardIndex] !== 0 && cents[cardIndex] <= value) continue;
-    cents[cardIndex] = value;
-    const id = card.purchase_uris?.cardmarket?.match(/idProduct=(\d+)/);
-    product[cardIndex] = id ? Number(id[1]) : 0;
-    priced++;
+    const cheaper = (current, price) => {
+      const value = Number.parseFloat(price ?? "");
+      if (!Number.isFinite(value) || value <= 0) return 0;
+      const rounded = Math.round(value * 100);
+      return current === 0 || rounded < current ? rounded : 0;
+    };
+
+    const eurValue = cheaper(cents[cardIndex], card.prices?.eur);
+    if (eurValue) {
+      cents[cardIndex] = eurValue;
+      const id = card.purchase_uris?.cardmarket?.match(/idProduct=(\d+)/);
+      product[cardIndex] = id ? Number(id[1]) : 0;
+      priced++;
+    }
+    const usdValue = cheaper(usd[cardIndex], card.prices?.usd);
+    if (usdValue) usd[cardIndex] = usdValue;
+    const tixValue = cheaper(tix[cardIndex], card.prices?.tix);
+    if (tixValue) tix[cardIndex] = tixValue;
   }
 
-  const covered = cents.filter((c) => c > 0).length;
-  log(`scanned ${seen} printings, skipped ${skipped} unbuyable, ${priced} price improvements`);
-  log(`${covered}/${index.cards.length} cards priced`);
+  log(`scanned ${seen} printings, skipped ${skipped} unbuyable, ${priced} EUR improvements`);
+  for (const [label, arr] of [["EUR", cents], ["USD", usd], ["tix", tix]]) {
+    log(`  ${label}: ${arr.filter((c) => c > 0).length}/${index.cards.length} cards priced`);
+  }
 
   const body = JSON.stringify({
     generatedAt: new Date().toISOString(),
     gbpPerEur,
     rateDate,
     cents,
+    usd,
+    tix,
     product,
   });
   await writeFile(path.join(OUT_DIR, "prices.json"), body);

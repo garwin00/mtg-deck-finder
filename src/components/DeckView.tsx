@@ -10,6 +10,7 @@ import { missingAsCsv, missingAsText } from "@/lib/match";
 import { cardmarketUrl, formatGbp, gbpPrice, type PriceIndex } from "@/lib/prices";
 import { cardImageUrl, setCodeOf, setIconUrl, type PrintingIndex } from "@/lib/printings";
 import { CATEGORY_LABELS, CATEGORY_ORDER, type Category } from "@/lib/types";
+import { BuyPanel } from "./BuyPanel";
 import { ColourPips } from "./ColourPips";
 import { HoverCard } from "./HoverCard";
 import { ManaCurve } from "./ManaCurve";
@@ -35,7 +36,6 @@ type Props = {
  */
 export function DeckView({ match, index, prices, printings, stats, backHref, backLabel }: Props) {
   const [copied, setCopied] = useState(false);
-  const [handedOff, setHandedOff] = useState(false);
 
   // The commander leads, the way a decklist writeup does.
   const { commanderEntries, grouped } = useMemo(() => {
@@ -97,23 +97,6 @@ export function DeckView({ match, index, prices, printings, stats, backHref, bac
     await navigator.clipboard.writeText(missingAsText(match));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  /**
-   * Cardmarket has no URL that accepts a list, but its wants list reads exactly
-   * the `<count> <name>` lines we already produce. So copy, then open the page
-   * for the user to paste — which keeps the retailer the same as the one the
-   * prices come from.
-   */
-  const buyAll = async () => {
-    try {
-      await navigator.clipboard.writeText(missingAsText(match));
-      setHandedOff(true);
-      setTimeout(() => setHandedOff(false), 8000);
-    } catch {
-      // Opening the page is still useful without the clipboard.
-    }
-    window.open("https://www.cardmarket.com/en/Magic/Wants", "_blank", "noopener,noreferrer");
   };
 
   const downloadCsv = () => {
@@ -207,18 +190,7 @@ export function DeckView({ match, index, prices, printings, stats, backHref, bac
               </p>
             ) : (
               <>
-                <button
-                  type="button"
-                  onClick={buyAll}
-                  className="mt-3 w-full rounded-md bg-accent px-3 py-2 text-sm font-semibold text-[#241c05] hover:opacity-90"
-                >
-                  Buy all {missingCount} on Cardmarket
-                </button>
-                {handedOff && (
-                  <p className="mt-2 text-xs text-[#7bd88f]">
-                    List copied — paste it into the wants field on the tab that just opened.
-                  </p>
-                )}
+                <BuyPanel match={match} prices={prices} />
 
                 <div className="mt-2 flex gap-2">
                   <button

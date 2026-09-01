@@ -190,13 +190,18 @@ collection. Read it before changing how images are fetched or displayed.
   Scryfall marks them commander-legal because legality belongs to the card
   rather than the printing, and they are often the cheapest listing, so quoting
   one sends the user to buy a card no playgroup accepts.
-- **Bulk buying is copy-then-open, not a deep link.** Cardmarket has no URL that
-  accepts a card list, but its wants list reads the `<count> <name>` lines
-  `missingAsText` produces, so the button copies and opens the page. TCGplayer
-  *does* accept `massentry?productline=Magic&c=…`, and was not used: it is US,
-  in dollars, and would quote different prices from the ones shown. Retailer
-  lists use front-face names, since that is how double-faced cards are
-  catalogued.
+- **Three retailers, because Scryfall already report three.** Their prices come
+  from their affiliates — `usd` is TCGplayer, `eur` is Cardmarket, `tix` is
+  Cardhoarder — so all three totals come out of the bulk file `build-prices.mjs`
+  already streams. The cheapest printing is tracked per currency; it isn't
+  always the same printing. Adding a fourth retailer is not a scraping problem,
+  it is an affiliate-programme problem — see `GOING-PUBLIC.md`.
+- **Only offer a handoff that works.** TCGplayer takes the list in the URL
+  (`massentry?productline=Magic&c=…`, entries joined by `||`); Cardmarket takes a
+  paste into its wants list, from where their Shopping Wizard spreads it across
+  the fewest sellers. Cardhoarder shows a price but no button, because there is
+  no verified bulk route and a button would promise one. Retailer lists use
+  front-face names, since that is how double-faced cards are catalogued.
 - **Prices are an estimate and must stay labelled as one.** One snapshot,
   cheapest printing, ignoring condition, seller and shipping — and EU sellers
   add ~20% import VAT into the UK.
