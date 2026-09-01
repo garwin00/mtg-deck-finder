@@ -36,6 +36,17 @@ export function cardImageUrl(
   return `https://cards.scryfall.io/${size}/front/${id[0]}/${id[1]}/${id}.jpg`;
 }
 
+/**
+ * The art crop for a card. Built rather than stored because 22 commanders have
+ * no art_crop in the oracle export even though the printing has one.
+ */
+export function artCropUrl(printings: PrintingIndex, cardIndex: number): string | undefined {
+  const hex = printings.ids[cardIndex];
+  if (!hex) return undefined;
+  const id = withDashes(hex);
+  return `https://cards.scryfall.io/art_crop/front/${id[0]}/${id[1]}/${id}.jpg`;
+}
+
 export function setCodeOf(printings: PrintingIndex, cardIndex: number): string | undefined {
   return printings.setCodes[printings.sets[cardIndex]] || undefined;
 }

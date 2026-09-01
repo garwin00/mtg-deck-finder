@@ -19,6 +19,13 @@ type Props = {
  * would mean opening each one to find out.
  */
 export function CommanderDecks({ commander, brackets, matches, loaded, total }: Props) {
+  // EDHREC publish no prose about a commander, so this is assembled from what
+  // they do publish: the themes people build, and the brackets they report.
+  const themes = [...commander.tribes, ...commander.archetypes];
+  const playstyle = themes.length
+    ? `Usually built as ${themes.slice(0, 3).join(", ")}${themes.length > 3 ? ` and ${themes.length - 3} other themes` : ""}.`
+    : null;
+
   return (
     <section>
       <Link href="/" className="text-sm text-muted underline hover:text-foreground">
@@ -28,6 +35,7 @@ export function CommanderDecks({ commander, brackets, matches, loaded, total }: 
       <div className="mt-3 flex items-baseline justify-between gap-4">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold">{commander.name}</h2>
+          {playstyle && <p className="mt-0.5 text-sm text-muted">{playstyle}</p>}
           {brackets && (
             <p
               className="mt-0.5 text-xs text-muted"

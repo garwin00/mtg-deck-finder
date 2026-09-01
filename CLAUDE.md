@@ -156,11 +156,15 @@ collection. Read it before changing how images are fetched or displayed.
   fetches decklists from EDHREC directly when the user opens a commander. Their
   JSON is CORS-open and cacheable. Do not reintroduce a decklist corpus without
   deciding the redistribution question first.
-- **Themes come from EDHREC's theme pages, inverted.** Each theme page lists its
-  leading commanders, so 435 requests give commander → themes rather than one
-  request per commander. That makes the tagging a "best-known commanders for
-  this theme" list, not exhaustive: 80% of a real collection's commanders carry
-  at least one, median two. Say so in the UI rather than implying completeness.
+- **Themes come from EDHREC's theme pages, inverted, and are weighted.** Each
+  theme page lists its leading commanders, so 435 requests give commander →
+  themes rather than one request per commander. Each listing carries `num_decks`
+  for that commander in that theme, which is the weight: Krenko has 5,689
+  Goblins decks and one Archers deck. Associations under 25 decks are dropped
+  and the rest are stored heaviest-first, so the first two are the ones worth
+  showing. Without that the themes are alphabetical trivia — "Krenko, usually
+  built as Archers". The tagging is still not exhaustive: 56% of a real
+  collection's commanders carry one. Say so rather than implying completeness.
 - **Tribes are split from archetypes with Scryfall's creature-type catalogue,**
   because EDHREC doesn't distinguish them. Their slugs are plural, so the check
   tries `zombies → zombie`, `elves → elf`, `allies → ally`.

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { OwnedCommander } from "@/lib/edhrec";
-import { cardImageUrl, type PrintingIndex } from "@/lib/printings";
+import { artCropUrl, cardImageUrl, type PrintingIndex } from "@/lib/printings";
 import { ColourPips } from "./ColourPips";
 import { HoverCard } from "./HoverCard";
 
@@ -284,6 +284,10 @@ export function CommanderList({ commanders, printings, completion, scoring, onSc
               commander={commander}
               percent={completion.get(commander.slug)}
               image={printings ? cardImageUrl(printings, commander.cardIndex) : undefined}
+              art={
+                commander.art ??
+                (printings ? artCropUrl(printings, commander.cardIndex) : undefined)
+              }
             />
           ))}
         </div>
@@ -306,11 +310,19 @@ function CommanderCard({
   commander,
   percent,
   image,
+  art,
 }: {
   commander: OwnedCommander;
   percent?: number;
   image?: string;
+  /** Falls back to a constructed crop; 22 commanders have none stored. */
+  art?: string;
 }) {
+  // Double-faced names run to two lines and push the card taller than its
+  // neighbours. The front face is what people call the card, and hovering
+  // shows the whole thing anyway.
+  const title = commander.name.split("//")[0].trim();
+  const themes = [...commander.tribes, ...commander.archetypes].slice(0, 2);
   return (
     // Hovering shows the whole card, which also satisfies Scryfall's rule that
     // an art crop be accompanied by the full card or an artist credit.
@@ -323,9 +335,9 @@ function CommanderCard({
           the whole crop rather than a thin slice of it. */}
       <div className="relative aspect-[626/457] w-full bg-surface-2">
         {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
-        {commander.art && (
+        {art && (
           <Image
-            src={commander.art}
+            src={art}
             alt=""
             fill
             unoptimized
@@ -342,8 +354,15 @@ function CommanderCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-3">
-        <h3 className="line-clamp-2 text-sm font-medium leading-snug">{commander.name}</h3>
+      <div className="flex flex-1 flex-col gap-1.5 p-3">
+        {/* Fixed to two lines so every card in the grid is the same height. */}
+        <h3
+          className="line-clamp-2 min-h-[2.4rem] text-sm font-medium leading-snug"
+          title={commander.name}
+        >
+          {title}
+        </h3>
+        <p className="min-h-4 truncate text-[11px] text-muted">{themes.join(" · ")}</p>
         <div className="mt-auto flex items-center justify-between gap-2">
           <ColourPips colours={commander.colours} />
           {percent !== undefined && (

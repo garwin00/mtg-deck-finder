@@ -37,6 +37,8 @@ const BUCKETS = [
 ];
 
 const TAG_SITEMAP = "https://edhrec.com/sitemaps/tags.xml";
+/** Fewer decks than this in a theme is noise, not how the commander is built. */
+const MIN_THEME_DECKS = 25;
 const CREATURE_TYPES = "https://api.scryfall.com/catalog/creature-types";
 
 const log = (...a) => console.log("[build-commanders]", ...a);
@@ -98,6 +100,7 @@ async function fetchThemes() {
   log(`${slugs.length} themes to invert`);
 
   const labels = new Map();
+  /** commander slug -> Map(theme slug -> decks that commander has in it). */
   const byCommander = new Map();
   let done = 0;
   let failed = 0;
@@ -111,8 +114,13 @@ async function fetchThemes() {
       for (const list of page.container?.json_dict?.cardlists ?? []) {
         if (!/Commanders/i.test(list.header)) continue;
         for (const cv of list.cardviews) {
-          if (!byCommander.has(cv.sanitized)) byCommander.set(cv.sanitized, new Set());
-          byCommander.get(cv.sanitized).add(slug);
+          // A theme page lists its leading commanders, and a commander can
+          // appear in one on a single deck — Krenko is in Archers on one deck
+          // against 5,689 in Goblins. Weight by that count and drop the noise,
+          // or the themes shown for a commander are alphabetical trivia.
+          if ((cv.num_decks ?? 0) < MIN_THEME_DECKS) continue;
+          if (!byCommander.has(cv.sanitized)) byCommander.set(cv.sanitized, new Map());
+          byCommander.get(cv.sanitized).set(slug, cv.num_decks);
         }
       }
     } catch {
@@ -185,7 +193,9 @@ async function main() {
 
   // Only themes something in the catalogue actually uses are worth shipping.
   const used = new Set();
-  for (const entry of ranked) for (const t of byCommander.get(entry.slug) ?? []) used.add(t);
+  for (const entry of ranked) {
+    for (const t of (byCommander.get(entry.slug) ?? new Map()).keys()) used.add(t);
+  }
 
   const tribes = [];
   const archetypes = [];
@@ -205,7 +215,10 @@ async function main() {
       unresolved.push(entry.name);
       continue;
     }
-    const themes = [...(byCommander.get(entry.slug) ?? [])];
+    // Heaviest first, so the first two are the ones worth showing on a card.
+    const themes = [...(byCommander.get(entry.slug) ?? new Map())]
+      .sort((x, y) => y[1] - x[1])
+      .map(([slug]) => slug);
     const deck = { s: entry.slug, c: cardIndex, n: entry.numDecks };
     const t = themes.filter((x) => tribeAt.has(x)).map((x) => tribeAt.get(x));
     const a = themes.filter((x) => archetypeAt.has(x)).map((x) => archetypeAt.get(x));
