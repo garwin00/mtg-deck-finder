@@ -312,8 +312,10 @@ function CollectionCard({
               height={12}
               unoptimized
               title={set.toUpperCase()}
-              // The icons ship unfilled, so they'd be black on black.
-              className="shrink-0 opacity-60 invert"
+              // Both dimensions are set because Tailwind's preflight applies
+              // height:auto to images, which Next flags as a broken aspect
+              // ratio. Icons ship unfilled, hence the invert.
+              className="h-3 w-3 shrink-0 opacity-60 invert"
             />
           )}
         </div>

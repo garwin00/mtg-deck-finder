@@ -66,7 +66,8 @@ export function HoverCard({
               width={WIDTH}
               height={HEIGHT}
               unoptimized
-              className="block"
+              // Explicit size for the same preflight reason as the set icons.
+              className="block h-full w-full"
             />
           </div>,
           document.body
