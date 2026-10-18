@@ -196,6 +196,20 @@ function FilledDeck({
           <p className="mt-2 text-sm text-muted">
             all from your collection · {landCount} lands, {basicCount} basic
           </p>
+          <p className="mt-1 text-xs text-muted">
+            <span
+              className="rounded-[2px] border border-ink px-1.5 font-bold text-ink"
+              title={
+                deck.bracket.gameChangers.length
+                  ? `Game Changers: ${deck.bracket.gameChangers.join(", ")}`
+                  : "No Game Changers"
+              }
+            >
+              Bracket {deck.bracket.label}
+            </span>{" "}
+            estimated · {deck.bracket.gameChangers.length} Game Changer
+            {deck.bracket.gameChangers.length === 1 ? "" : "s"}
+          </p>
           {deck.total < DECK_SIZE && (
             <p className="text-sm font-semibold text-signal">
               Your collection runs out of cards in these colours {DECK_SIZE - deck.total} short.
@@ -250,6 +264,12 @@ function FilledDeck({
             A starting point, not a tuned deck. The fill checks colour identity and EDHREC&apos;s
             lists, not the curve, the land count&apos;s fit or combos. Hover a card to see why it
             was picked.
+          </p>
+          <p className="mt-2">
+            The bracket is our estimate from Game Changers alone: 0 suggests 1–2, 1–3 gives 3, 4 or
+            more gives 4. It&apos;s a floor, blind to combos, tutors, mass land denial and extra
+            turns, so the deck may play above it. The mix on the Decks tab is what players report
+            for this commander, a different measure.
           </p>
           <p className="mt-2">One card per line, commander first: the decklist pastes into Moxfield or Archidekt.</p>
         </div>

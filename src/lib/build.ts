@@ -1,7 +1,7 @@
 import { lookupKeys } from "./normalise";
 import type { CardStat, FillReason, FillTier } from "./edhrec";
 import type { Collection } from "./collection";
-import type { DeckEntry, DeckSource } from "./match";
+import { estimateBracket, type Bracket, type DeckEntry, type DeckSource } from "./match";
 import type { CardIndex, CardRecord } from "./types";
 
 /** A commander deck is 100 cards, the commander being one of them. */
@@ -22,6 +22,8 @@ export type BuiltDeck = {
   basics: [number, number][];
   /** Below DECK_SIZE only when the collection runs out of cards in these colours. */
   total: number;
+  /** Our Game Changer estimate, the same floor the deck pages show. */
+  bracket: Bracket;
 };
 
 function resolve(index: CardIndex, name: string): number | undefined {
@@ -125,7 +127,14 @@ export function buildDeck({
   const basicCount = basics.reduce((s, [, n]) => s + n, 0);
   take((i) => !isLand(i), DECK_SIZE - picks.length - basicCount);
 
-  return { picks, basics, total: picks.length + basicCount };
+  // The commander counts: a Game Changer in the command zone still raises the bracket.
+  const commander = index.cards[commanderIndex];
+  const bracket = estimateBracket([
+    { card: commander, cardIndex: commanderIndex, needed: 1, have: 1, category: commander.cat },
+    ...picks,
+  ]);
+
+  return { picks, basics, total: picks.length + basicCount, bracket };
 }
 
 /**
