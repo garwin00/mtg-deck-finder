@@ -29,6 +29,8 @@ export type CardRecord = {
   /** Legal as a commander. */
   cmdr?: 1;
   basic?: 1;
+  /** Not Commander-legal: kept only because a precon or the Game Changers list names it. */
+  ban?: 1;
   /** Art crop URL, only present for commander candidates. */
   art?: string;
   /** Credited wherever the art crop is shown, as Scryfall require. */

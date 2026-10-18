@@ -10,9 +10,10 @@
  *  - cards.json    slim records for every card we might need to talk about,
  *                  plus a normalised-name alias map for collection matching.
  *  - precons.json  decklists as indices into cards.json.
- *  - printings.json id, set and mana value per card, so the browser can build
- *                  image URLs itself instead of calling Scryfall's API — which
- *                  requires a User-Agent header browser JavaScript cannot set.
+ *  - printings.json id, set, mana value and EDHREC rank per card, so the
+ *                  browser can build image URLs itself instead of calling
+ *                  Scryfall's API — which requires a User-Agent header browser
+ *                  JavaScript cannot set.
  *
  * Run: npm run build:data
  */
@@ -147,6 +148,9 @@ async function main() {
     if (gameChangers.has(c.name)) record.gc = 1;
     if (isCommanderCandidate(c)) record.cmdr = 1;
     if (isBasicLand(c)) record.basic = 1;
+    // Kept for precons and the Game Changers list, but a deck built from the
+    // collection must never suggest one.
+    if (c.legalities?.commander !== "legal") record.ban = 1;
     record.cat = categorise(c);
     if (withArt) {
       const art = c.image_uris?.art_crop ?? c.card_faces?.[0]?.image_uris?.art_crop;
@@ -157,7 +161,7 @@ async function main() {
       if (artist) record.artist = artist;
     }
     const index = cards.push(record) - 1;
-    printings.push({ id: c.id, set: c.set ?? "", cmc: c.cmc ?? 0 });
+    printings.push({ id: c.id, set: c.set ?? "", cmc: c.cmc ?? 0, rank: c.edhrec_rank ?? 0 });
     for (const k of aliasKeys(c.name)) if (!byAlias.has(k)) byAlias.set(k, index);
     return index;
   };
@@ -269,6 +273,9 @@ async function main() {
     ids: printings.map((p) => p.id.replace(/-/g, "")),
     sets,
     cmc: printings.map((p) => p.cmc),
+    // Scryfall's copy of EDHREC's all-decks popularity rank, 0 when unranked.
+    // Orders the last-resort fill, where no commander-specific data reaches.
+    rank: printings.map((p) => p.rank),
   });
   await write("precons.json", { generatedAt, gameChangerCount: gameChangers.size, decks });
   await writeFile(

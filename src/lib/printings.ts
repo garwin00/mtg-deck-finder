@@ -15,6 +15,8 @@ export type PrintingIndex = {
   ids: string[];
   sets: number[];
   cmc: number[];
+  /** EDHREC's rank across all Commander decks, 1 = most played, 0 = unranked. */
+  rank: number[];
 };
 
 function withDashes(hex: string): string {
