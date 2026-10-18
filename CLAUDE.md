@@ -255,5 +255,11 @@ collection. Read it before changing how images are fetched or displayed.
 
 ## Git
 
-Branch before writing code, cut from the current feature base (not `main`).
-Current branch: `feat/mvp-precon-matcher`. Commit atomically; don't open PRs.
+Branch before writing code, cut from `main`; the MVP branch is merged and
+`main` is now the base. Commit atomically; don't open PRs.
+
+Regenerate `package-lock.json` from scratch (`rm -rf node_modules
+package-lock.json && npm install`) rather than patching it. npm on macOS can
+drop the `@emnapi/*` deps of the optional wasm32 packages, and the Linux
+`npm ci` in the refresh workflow then rejects the lock. That stalled the data
+refresh from September to October 2026.
