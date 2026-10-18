@@ -1,20 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import type { CardStat } from "@/lib/edhrec";
 import type { CardIndex } from "@/lib/types";
-import type { DeckEntry, DeckMatch } from "@/lib/match";
+import type { DeckMatch } from "@/lib/match";
 import { missingAsCsv, missingAsText } from "@/lib/match";
 import { cardmarketUrl, formatGbp, gbpPrice, type PriceIndex } from "@/lib/prices";
 import { cardImageUrl, type PrintingIndex } from "@/lib/printings";
-import { CATEGORY_LABELS, CATEGORY_ORDER, type Category } from "@/lib/types";
-import { CardGroup } from "./CardGroup";
 import { BuyPanel } from "./BuyPanel";
+import { CardTable } from "./CardTable";
 import { ColourPips } from "./ColourPips";
 import { HoverCard } from "./HoverCard";
 import { ManaCurve } from "./ManaCurve";
-import { CompletionRing } from "./CompletionRing";
+import { backLink, buttonGhost, pageTitle, sectionHead } from "./ui";
 
 type Props = {
   match: DeckMatch;
@@ -28,32 +28,18 @@ type Props = {
 };
 
 /**
- * A whole deck as card images. Missing cards are marked with a ring rather than
- * by altering the artwork, which Scryfall's terms forbid.
+ * A whole deck, dealt onto the table: the commander in its zone, the rest in
+ * piles by role, missing cards as priced proxies, then how to buy them.
  */
 export function DeckView({ match, index, prices, printings, stats, backHref, backLabel }: Props) {
   const [copied, setCopied] = useState(false);
 
-  // The commander leads, the way a decklist writeup does.
-  const { commanderEntries, grouped } = useMemo(() => {
+  // The commander leads in the header rather than sitting in a pile.
+  const { commanderEntries, rest } = useMemo(() => {
     const isCommander = new Set(match.deck.commanders);
-    const buckets = new Map<Category, DeckEntry[]>();
-    const commanders: DeckEntry[] = [];
-    for (const entry of match.entries) {
-      if (isCommander.has(entry.cardIndex)) {
-        commanders.push(entry);
-        continue;
-      }
-      const list = buckets.get(entry.category) ?? [];
-      list.push(entry);
-      buckets.set(entry.category, list);
-    }
     return {
-      commanderEntries: commanders,
-      grouped: CATEGORY_ORDER.filter((c) => buckets.has(c) || c === "land").map((category) => ({
-        category,
-        entries: (buckets.get(category) ?? []).sort((a, b) => a.card.n.localeCompare(b.card.n)),
-      })),
+      commanderEntries: match.entries.filter((e) => isCommander.has(e.cardIndex)),
+      rest: match.entries.filter((e) => !isCommander.has(e.cardIndex)),
     };
   }, [match]);
 
@@ -72,7 +58,7 @@ export function DeckView({ match, index, prices, printings, stats, backHref, bac
   // Basics are part of the decklist and part of the mana base, but never
   // scored — a collection holds them in bulk, so counting them would add the
   // same offset to every deck and tell the user nothing.
-  const basicEntries = useMemo(
+  const basics = useMemo(
     () =>
       match.deck.basics
         .map(([cardIndex, needed]) => ({ cardIndex, needed }))
@@ -81,14 +67,27 @@ export function DeckView({ match, index, prices, printings, stats, backHref, bac
   );
 
   const manaBase = useMemo(() => {
-    const basic = basicEntries.reduce((sum, b) => sum + b.needed, 0);
+    const basic = basics.reduce((sum, b) => sum + b.needed, 0);
     const nonbasic = match.entries
       .filter((e) => e.category === "land")
       .reduce((sum, e) => sum + e.needed, 0);
     return { basic, nonbasic, total: basic + nonbasic };
-  }, [basicEntries, match]);
+  }, [basics, match]);
 
   const missingCount = match.missing.reduce((s, e) => s + (e.needed - e.have), 0);
+  const commanderNames = match.commanders.map((c) => c.n.split("//")[0].trim()).join(" & ");
+  // An EDHREC deck is named for its theme, so the commander is the headline;
+  // a precon's own name is the headline, with its commander underneath.
+  const isCommanderDeck = match.deck.kind === "commander";
+  const headline = isCommanderDeck ? commanderNames || match.deck.name : match.deck.name;
+  const kicker = isCommanderDeck
+    ? `${match.deck.name} · ${match.deck.subtitle} on EDHREC`
+    : `${match.deck.subtitle} · ${commanderNames || "No listed commander"}`;
+  // From the deck's commander list: an EDHREC average deck keeps its commander
+  // out of the card entries, so the entries can't be relied on for it.
+  const commanderIndex = match.deck.commanders[0] ?? commanderEntries[0]?.cardIndex;
+  const commanderImage =
+    printings && commanderIndex !== undefined ? cardImageUrl(printings, commanderIndex) : undefined;
 
   const copyMissing = async () => {
     await navigator.clipboard.writeText(missingAsText(match));
@@ -108,164 +107,151 @@ export function DeckView({ match, index, prices, printings, stats, backHref, bac
 
   return (
     <>
-      <Link href={backHref} className="text-sm text-muted underline hover:text-foreground">
+      <Link href={backHref} className={backLink}>
         ← {backLabel}
       </Link>
 
-      <header className="mt-3 flex flex-wrap items-start gap-4">
-        <CompletionRing percent={match.percent} size={64} />
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{match.deck.name}</h1>
-          <p className="mt-1 text-sm text-muted">
-            {match.deck.subtitle} ·{" "}
-            {match.commanders.map((c) => c.n).join(" & ") || "No listed commander"}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted">
+      <header className="mt-4 grid gap-6 border-b border-ink pb-6 md:grid-cols-[140px_1fr_auto] md:items-end">
+        <div className="hidden md:block">
+          {commanderImage && (
+            <HoverCard image={commanderImage} name={commanderNames}>
+              <Image
+                src={commanderImage}
+                alt={commanderNames}
+                width={140}
+                height={195}
+                unoptimized
+                className="h-[195px] w-[140px] rounded-[6px] shadow-[0_6px_18px_rgba(0,0,0,0.18)]"
+              />
+            </HoverCard>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
             <ColourPips colours={match.colours} />
-            <span>
-              {match.ownedCards}/{match.totalCards} owned
-            </span>
-            <span className="rounded bg-surface-2 px-1.5 py-0.5">
+            <span>{kicker}</span>
+          </p>
+          <h1 className={`mt-2 ${pageTitle}`}>{headline}</h1>
+          <div className="mt-5">
+            <ManaCurve entries={rest} printings={printings} />
+          </div>
+        </div>
+
+        <div className="md:text-right">
+          <p className="pr-1 text-6xl font-extrabold leading-[0.85] tracking-[-0.05em] tabular-nums sm:text-[88px]">
+            {match.ownedCards}
+            <span className="text-quiet">/{match.totalCards}</span>
+          </p>
+          <p className="mt-2 text-sm text-muted">owned, basics aside</p>
+          {estimate && missingCount > 0 && (
+            <p className="text-sm text-muted">
+              <span className="font-bold text-signal">~{formatGbp(estimate.total)}</span> of proxies
+              to replace
+            </p>
+          )}
+          <p className="mt-1 text-xs text-muted">
+            <span
+              className="rounded-[2px] border border-ink px-1.5 font-bold text-ink"
+              title={
+                match.bracket.gameChangers.length
+                  ? `Game Changers: ${match.bracket.gameChangers.join(", ")}`
+                  : "No Game Changers"
+              }
+            >
               Bracket {match.bracket.label}
             </span>
             {manaBase.total > 0 && (
-              <span>
-                {manaBase.total} lands · {manaBase.nonbasic} nonbasic, {manaBase.basic} basic
-              </span>
+              <>
+                {" "}
+                · {manaBase.total} lands, {manaBase.basic} basic
+              </>
             )}
-          </div>
+          </p>
         </div>
       </header>
 
-      <div className="mt-8 flex flex-col gap-8 lg:flex-row">
-        <div className="min-w-0 flex-1 space-y-8">
-          {commanderEntries.length > 0 && (
-            <CardGroup
-              title="Commander"
-              entries={commanderEntries}
-              printings={printings}
-              prices={prices}
-              stats={stats}
-              index={index}
-            />
-          )}
-          {grouped
-            .filter(({ category, entries }) => entries.length > 0 || category === "land")
-            .map(({ category, entries }) => (
-            <CardGroup
-              key={category}
-              title={CATEGORY_LABELS[category]}
-              entries={entries}
-              printings={printings}
-              prices={prices}
-              stats={stats}
-              // Basics belong with the lands, and are shown with their counts
-              // so the mana base is legible.
-              basics={category === "land" ? basicEntries : undefined}
-              index={index}
-            />
-            ))}
-        </div>
+      <CardTable
+        entries={rest}
+        basics={basics}
+        index={index}
+        printings={printings}
+        prices={prices}
+        stats={stats}
+      />
 
-        <aside className="w-full shrink-0 lg:w-80">
-          <div className="space-y-6 lg:sticky lg:top-6">
-            <ManaCurve entries={match.entries} printings={printings} />
+      <section className="mt-10">
+        <h2 className={sectionHead}>
+          <span>Missing ({missingCount})</span>
+          {estimate && missingCount > 0 && <span>~{formatGbp(estimate.total)}</span>}
+        </h2>
+
+        {missingCount === 0 ? (
+          <p className="mt-3 text-sm text-muted">You own every non-basic card in this deck.</p>
+        ) : (
+          <div className="mt-4 grid gap-8 md:grid-cols-[minmax(0,1fr)_320px]">
+            <ul className="max-h-[28rem] divide-y divide-rule overflow-y-auto bg-sheet outline outline-1 outline-rule">
+              {[...match.missing]
+                .sort((a, b) => {
+                  const pa = prices ? (gbpPrice(prices, a.cardIndex) ?? -1) : 0;
+                  const pb = prices ? (gbpPrice(prices, b.cardIndex) ?? -1) : 0;
+                  return pb - pa || a.card.n.localeCompare(b.card.n);
+                })
+                .map((entry) => {
+                  const each = prices ? gbpPrice(prices, entry.cardIndex) : undefined;
+                  const url = prices ? cardmarketUrl(prices, entry.cardIndex) : undefined;
+                  const copies = entry.needed - entry.have;
+                  const preview = printings ? cardImageUrl(printings, entry.cardIndex) : undefined;
+                  return (
+                    <li key={entry.cardIndex}>
+                      <HoverCard
+                        image={preview}
+                        name={entry.card.n}
+                        className="flex items-center gap-3 px-3 py-2 text-sm"
+                      >
+                        <span className="w-6 shrink-0 text-xs tabular-nums text-muted">{copies}×</span>
+                        <span className="min-w-0 flex-1 truncate">
+                          {url ? (
+                            <a href={url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                              {entry.card.n}
+                            </a>
+                          ) : (
+                            entry.card.n
+                          )}
+                        </span>
+                        <span className="shrink-0 text-xs font-semibold tabular-nums text-signal">
+                          {each === undefined ? "–" : formatGbp(each * copies)}
+                        </span>
+                      </HoverCard>
+                    </li>
+                  );
+                })}
+            </ul>
 
             <div>
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-                Missing ({missingCount})
-              </h2>
-              {estimate && missingCount > 0 && (
-                <span className="text-sm text-muted">~{formatGbp(estimate.total)}</span>
+              <BuyPanel match={match} prices={prices} />
+              <div className="mt-3 flex gap-2">
+                <button type="button" onClick={copyMissing} className={buttonGhost}>
+                  {copied ? "Copied" : "Copy list"}
+                </button>
+                <button type="button" onClick={downloadCsv} className={buttonGhost}>
+                  Download CSV
+                </button>
+              </div>
+              {prices && (
+                <p className="mt-3 text-xs text-muted">
+                  Cheapest printing on Cardmarket, converted at the ECB rate
+                  {prices.rateDate ? ` of ${prices.rateDate}` : ""}. Excludes shipping, and EU
+                  sellers add around 20% import VAT on delivery to the UK.
+                  {estimate &&
+                    estimate.unpriced > 0 &&
+                    ` ${estimate.unpriced} card${estimate.unpriced === 1 ? " has" : "s have"} no listed price.`}
+                </p>
               )}
             </div>
-
-            {missingCount === 0 ? (
-              <p className="mt-3 text-sm text-muted">
-                You own every non-basic card in this deck.
-              </p>
-            ) : (
-              <>
-                <BuyPanel match={match} prices={prices} />
-
-                <div className="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={copyMissing}
-                    className="rounded-md border border-border px-3 py-1 text-xs hover:border-accent/60"
-                  >
-                    {copied ? "Copied" : "Copy list"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={downloadCsv}
-                    className="rounded-md border border-border px-3 py-1 text-xs hover:border-accent/60"
-                  >
-                    Download CSV
-                  </button>
-                </div>
-
-                <ul className="mt-3 max-h-[32rem] divide-y divide-border overflow-y-auto rounded-lg border border-border bg-surface">
-                  {[...match.missing]
-                    .sort((a, b) => {
-                      const pa = prices ? (gbpPrice(prices, a.cardIndex) ?? -1) : 0;
-                      const pb = prices ? (gbpPrice(prices, b.cardIndex) ?? -1) : 0;
-                      return pb - pa || a.card.n.localeCompare(b.card.n);
-                    })
-                    .map((entry) => {
-                      const each = prices ? gbpPrice(prices, entry.cardIndex) : undefined;
-                      const url = prices ? cardmarketUrl(prices, entry.cardIndex) : undefined;
-                      const copies = entry.needed - entry.have;
-                      const preview = printings
-                        ? cardImageUrl(printings, entry.cardIndex)
-                        : undefined;
-                      return (
-                        <li key={entry.cardIndex}>
-                          <HoverCard
-                            image={preview}
-                            name={entry.card.n}
-                            className="flex items-center gap-2 px-3 py-2 text-sm"
-                          >
-                          <span className="w-6 shrink-0 text-xs text-muted">{copies}×</span>
-                          <span className="min-w-0 flex-1 truncate">
-                            {url ? (
-                              <a
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="hover:text-accent hover:underline"
-                              >
-                                {entry.card.n}
-                              </a>
-                            ) : (
-                              entry.card.n
-                            )}
-                          </span>
-                          <span className="shrink-0 text-xs tabular-nums text-muted">
-                            {each === undefined ? "—" : formatGbp(each * copies)}
-                          </span>
-                          </HoverCard>
-                        </li>
-                      );
-                    })}
-                </ul>
-
-                {prices && (
-                  <p className="mt-2 text-xs text-muted">
-                    Cheapest printing on Cardmarket, converted at the ECB rate
-                    {prices.rateDate ? ` of ${prices.rateDate}` : ""}. Excludes shipping, and EU
-                    sellers add around 20% import VAT on delivery to the UK.
-                    {estimate && estimate.unpriced > 0 &&
-                      ` ${estimate.unpriced} card${estimate.unpriced === 1 ? " has" : "s have"} no listed price.`}
-                  </p>
-                )}
-              </>
-            )}
-            </div>
           </div>
-        </aside>
-      </div>
+        )}
+      </section>
     </>
   );
 }

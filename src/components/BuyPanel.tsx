@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { DeckMatch } from "@/lib/match";
 import { missingAsText } from "@/lib/match";
 import { formatGbp, formatUsd, gbpPrice, tixPrice, usdPrice, type PriceIndex } from "@/lib/prices";
+import { button, buttonGhost } from "./ui";
 
 const CARDMARKET_WANTS = "https://www.cardmarket.com/en/Magic/Wants";
 const TCGPLAYER_MASSENTRY = "https://www.tcgplayer.com/massentry?productline=Magic";
@@ -46,17 +47,17 @@ export function BuyPanel({ match, prices }: { match: DeckMatch; prices: PriceInd
   const tcgplayerUrl = `${TCGPLAYER_MASSENTRY}&c=${encodeURIComponent(list.split("\n").join("||"))}`;
 
   return (
-    <div className="mt-3 space-y-2">
+    <div className="space-y-2">
       <button
         type="button"
         onClick={openCardmarket}
-        className="flex w-full items-center justify-between gap-3 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-[#241c05] hover:opacity-90"
+        className={`w-full justify-between! ${button}`}
       >
         <span>Buy on Cardmarket</span>
         <span className="tabular-nums">~{formatGbp(totals.gbp)}</span>
       </button>
       {copied && (
-        <p className="text-xs text-[#7bd88f]">
+        <p className="text-xs font-semibold">
           List copied — paste it into the wants field on the tab that just opened, then use their
           Shopping Wizard to spread it across the fewest sellers.
         </p>
@@ -66,16 +67,16 @@ export function BuyPanel({ match, prices }: { match: DeckMatch; prices: PriceInd
         href={tcgplayerUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex w-full items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm hover:border-accent/60"
+        className={`w-full justify-between! ${buttonGhost}`}
       >
         <span>
           Buy on TCGplayer <span className="text-xs text-muted">US</span>
         </span>
-        <span className="tabular-nums text-muted">~{formatUsd(totals.usd)}</span>
+        <span className="tabular-nums">~{formatUsd(totals.usd)}</span>
       </a>
 
       {totals.tix > 0 && (
-        <div className="flex w-full items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm text-muted">
+        <div className="flex h-9 w-full items-center justify-between gap-3 px-3.5 text-sm text-muted outline outline-1 -outline-offset-1 outline-rule">
           <span>
             Cardhoarder <span className="text-xs">MTGO</span>
           </span>
