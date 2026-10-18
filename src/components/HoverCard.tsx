@@ -56,7 +56,7 @@ export function HoverCard({
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="pointer-events-none fixed z-50 overflow-hidden rounded-xl shadow-2xl shadow-black/60 ring-1 ring-border"
+            className="pointer-events-none fixed z-50 overflow-hidden rounded-[12px] shadow-2xl shadow-black/40"
             style={{ ...style, width: WIDTH, height: HEIGHT }}
           >
             {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}

@@ -26,13 +26,6 @@
   --color-quiet: var(--quiet);
   --color-signal: var(--signal);
   --font-sans: var(--font-funnel);
-  /* Old names, mapped onto the print sheet until every page is restyled. */
-  --color-background: var(--page);
-  --color-surface: var(--sheet);
-  --color-surface-2: var(--wash);
-  --color-border: var(--rule);
-  --color-foreground: var(--ink);
-  --color-accent: var(--ink);
 }
 
 body {

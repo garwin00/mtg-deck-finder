@@ -6,29 +6,12 @@ import type { Collection } from "@/lib/collection";
 import { cardImageUrl, setCodeOf, setIconUrl, type PrintingIndex } from "@/lib/printings";
 import { cardmarketUrl, formatGbp, gbpPrice, type PriceIndex } from "@/lib/prices";
 import type { CardIndex, CardRecord } from "@/lib/types";
-import { ColourPips } from "./ColourPips";
+import { ColourFilter, ColourPips, matchesColours } from "./ColourPips";
 import { HoverCard } from "./HoverCard";
+import { buttonGhost, input, segment, segmented, select } from "./ui";
 
 /** A page at a time: 2,555 cards is a lot of image elements to mount at once. */
 const PAGE_SIZE = 60;
-
-const COLOURS = [
-  { key: "W", label: "White" },
-  { key: "U", label: "Blue" },
-  { key: "B", label: "Black" },
-  { key: "R", label: "Red" },
-  { key: "G", label: "Green" },
-  { key: "C", label: "Colourless" },
-];
-
-const PIP_STYLES: Record<string, string> = {
-  W: "bg-[#f8f2df] text-[#3b3428]",
-  U: "bg-[#9cd3f2] text-[#0e3348]",
-  B: "bg-[#4b4453] text-[#e6dff0]",
-  R: "bg-[#e78a72] text-[#4a1710]",
-  G: "bg-[#8fc79a] text-[#12351c]",
-  C: "bg-surface-2 text-muted",
-};
 
 const RARITIES = ["mythic", "rare", "uncommon", "common"];
 type Sort = "name" | "price" | "copies" | "added";
@@ -68,13 +51,7 @@ export function CollectionGrid({
     const kept = rows.filter((row) => {
       if (q && !row.card.n.toLowerCase().includes(q)) return false;
       if (rarity && row.card.r !== rarity) return false;
-      if (colours.size > 0) {
-        // Same exact-identity rule as the commander filter.
-        const identity = row.card.ci === "" ? ["C"] : [...row.card.ci];
-        if (identity.length !== colours.size) return false;
-        if (!identity.every((c) => colours.has(c))) return false;
-      }
-      return true;
+      return matchesColours(row.card.ci, colours);
     });
 
     const priceOf = (row: Row) => (prices ? (gbpPrice(prices, row.cardIndex) ?? -1) : 0);
@@ -110,39 +87,20 @@ export function CollectionGrid({
 
   return (
     <>
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setPage(0);
-        }}
-        placeholder="Search your collection…"
-        aria-label="Search your collection"
-        className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm outline-none placeholder:text-muted focus:border-accent/60"
-      />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 text-sm">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setPage(0);
+          }}
+          placeholder="Search your cards"
+          aria-label="Search your collection"
+          className={`w-full sm:w-64 ${input}`}
+        />
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
-        <div className="flex items-center gap-1.5">
-          {COLOURS.map(({ key, label }) => {
-            const on = colours.has(key);
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => toggleColour(key)}
-                aria-pressed={on}
-                aria-label={label}
-                title={label}
-                className={`grid h-7 w-7 place-items-center rounded-full text-[11px] font-bold transition ${
-                  PIP_STYLES[key]
-                } ${on ? "ring-2 ring-accent" : "opacity-45 hover:opacity-80"}`}
-              >
-                {key}
-              </button>
-            );
-          })}
-        </div>
+        <ColourFilter selected={colours} onToggle={toggleColour} />
 
         <label className="flex items-center gap-2 text-muted">
           Rarity
@@ -152,7 +110,7 @@ export function CollectionGrid({
               setRarity(e.target.value);
               setPage(0);
             }}
-            className="rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-accent/60"
+            className={select}
           >
             <option value="">Any</option>
             {RARITIES.map((r) => (
@@ -163,8 +121,7 @@ export function CollectionGrid({
           </select>
         </label>
 
-        <div className="flex items-center gap-2 text-muted">
-          Sort
+        <div className={segmented} role="group" aria-label="Sort">
           {(
             [
               ["price", "Value"],
@@ -180,11 +137,8 @@ export function CollectionGrid({
                 setSort(key);
                 setPage(0);
               }}
-              className={`rounded-md border px-2.5 py-1 ${
-                sort === key
-                  ? "border-accent text-accent"
-                  : "border-border text-muted hover:text-foreground"
-              }`}
+              aria-pressed={sort === key}
+              className={segment(sort === key)}
             >
               {label}
             </button>
@@ -200,7 +154,7 @@ export function CollectionGrid({
               setColours(new Set());
               setPage(0);
             }}
-            className="text-muted underline hover:text-foreground"
+            className="text-muted underline hover:text-ink"
           >
             Clear filters
           </button>
@@ -214,7 +168,7 @@ export function CollectionGrid({
       {visible.length === 0 ? (
         <p className="mt-6 text-sm text-muted">Nothing in your collection matches those filters.</p>
       ) : (
-        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-4 lg:grid-cols-6">
           {visible.map((row) => (
             <CollectionCard
               key={row.cardIndex}
@@ -227,12 +181,12 @@ export function CollectionGrid({
       )}
 
       {pages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-4 text-sm">
+        <div className="mt-8 flex items-center justify-center gap-4 text-sm">
           <button
             type="button"
             onClick={() => setPage(current - 1)}
             disabled={current === 0}
-            className="rounded-md border border-border px-3 py-1 text-muted hover:text-foreground disabled:opacity-40"
+            className={buttonGhost}
           >
             ← Previous
           </button>
@@ -243,7 +197,7 @@ export function CollectionGrid({
             type="button"
             onClick={() => setPage(current + 1)}
             disabled={current >= pages - 1}
-            className="rounded-md border border-border px-3 py-1 text-muted hover:text-foreground disabled:opacity-40"
+            className={buttonGhost}
           >
             Next →
           </button>
@@ -269,7 +223,7 @@ function CollectionCard({
 
   const body = (
     <>
-      <div className="relative aspect-[488/680] w-full overflow-hidden rounded-lg bg-surface-2">
+      <div className="relative aspect-[488/680] w-full overflow-hidden rounded-[6px] bg-wash shadow-[0_2px_6px_rgba(0,0,0,0.14)]">
         {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
         {image && (
           <Image
@@ -288,20 +242,20 @@ function CollectionCard({
           </span>
         )}
         {row.copies > 1 && (
-          <span className="absolute left-1.5 top-1.5 rounded bg-background/85 px-1.5 py-0.5 text-[11px] font-semibold">
+          <span className="absolute left-1.5 top-1.5 rounded-[2px] bg-ink px-1.5 py-0.5 text-[11px] font-bold text-sheet">
             {row.copies}×
           </span>
         )}
         {row.card.gc === 1 && (
-          <span className="absolute right-1.5 top-1.5 rounded bg-background/85 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-accent">
+          <span className="absolute right-1.5 top-1.5 rounded-[2px] bg-ink px-1 text-[10px] font-bold text-sheet">
             GC
           </span>
         )}
       </div>
 
-      <div className="mt-1.5">
+      <div className="mt-2">
         <div className="flex items-center gap-1.5">
-          <p className="min-w-0 flex-1 truncate text-xs font-medium" title={row.card.n}>
+          <p className="min-w-0 flex-1 truncate text-xs font-semibold" title={row.card.n}>
             {row.card.n}
           </p>
           {set && (
@@ -314,15 +268,15 @@ function CollectionCard({
               title={set.toUpperCase()}
               // Both dimensions are set because Tailwind's preflight applies
               // height:auto to images, which Next flags as a broken aspect
-              // ratio. Icons ship unfilled, hence the invert.
-              className="h-3 w-3 shrink-0 opacity-60 invert"
+              // ratio.
+              className="h-3 w-3 shrink-0 opacity-60"
             />
           )}
         </div>
         <div className="flex items-center gap-2 text-[11px] text-muted">
-          <ColourPips colours={row.card.ci} />
+          <ColourPips colours={row.card.ci} size={13} />
           <span className="ml-auto tabular-nums">
-            {each === undefined ? "—" : formatGbp(each * row.copies)}
+            {each === undefined ? "–" : formatGbp(each * row.copies)}
           </span>
         </div>
       </div>
@@ -330,7 +284,7 @@ function CollectionCard({
   );
 
   const wrapped = url ? (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="block hover:opacity-90">
+    <a href={url} target="_blank" rel="noopener noreferrer" className="block">
       {body}
     </a>
   ) : (

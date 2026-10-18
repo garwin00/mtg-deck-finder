@@ -5,6 +5,7 @@ import { CommanderDecks } from "@/components/CommanderDecks";
 import { useRequireCollection } from "@/components/CollectionGate";
 import { fetchAverageDeck, fetchCommanderData, type BracketMix } from "@/lib/edhrec";
 import { matchDecks, type DeckMatch } from "@/lib/match";
+import { errorBox } from "@/components/ui";
 
 export default function CommanderPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
@@ -23,6 +24,11 @@ export default function CommanderPage({ params }: { params: Promise<{ slug: stri
   const commander = state?.owned?.find((c) => c.slug === slug);
   const index = state?.index;
   const collection = state?.collection;
+  const ensurePrintings = state?.ensurePrintings;
+
+  useEffect(() => {
+    ensurePrintings?.();
+  }, [ensurePrintings]);
 
   useEffect(() => {
     if (!commander || !index || !collection) return;
@@ -71,16 +77,17 @@ export default function CommanderPage({ params }: { params: Promise<{ slug: stri
   const shown = progress.slug === slug ? progress : { loaded: 0, total: 0 };
 
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
+    <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-10">
       {!commander ? (
         <p className="text-sm text-muted">That commander isn&apos;t in your collection.</p>
       ) : current?.error ? (
-        <p className="rounded-lg border border-[#e07a6a]/40 bg-[#e07a6a]/10 p-4 text-sm">
+        <p className={errorBox}>
           Couldn&apos;t load {commander.name} from EDHREC: {current.error}
         </p>
       ) : (
         <CommanderDecks
           commander={commander}
+          printings={state.printings}
           brackets={current?.brackets}
           matches={current?.matches ?? null}
           loaded={shown.loaded}

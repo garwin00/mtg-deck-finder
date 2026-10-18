@@ -3,31 +3,16 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Collection } from "@/lib/collection";
-import { cardImageUrl, type PrintingIndex } from "@/lib/printings";
+import Image from "next/image";
+import { artCropUrl, cardImageUrl, type PrintingIndex } from "@/lib/printings";
 import { formatGbp, gbpPrice, type PriceIndex } from "@/lib/prices";
 import type { CardIndex, CommanderCatalogue } from "@/lib/types";
-import { ColourPips } from "./ColourPips";
+import { ColourFilter, ColourPips, matchesColours } from "./ColourPips";
 import { HoverCard } from "./HoverCard";
+import { Meter } from "./Meter";
+import { buttonGhost, input, segment, segmented } from "./ui";
 
 const PAGE_SIZE = 50;
-
-const COLOURS = [
-  { key: "W", label: "White" },
-  { key: "U", label: "Blue" },
-  { key: "B", label: "Black" },
-  { key: "R", label: "Red" },
-  { key: "G", label: "Green" },
-  { key: "C", label: "Colourless" },
-];
-
-const PIP_STYLES: Record<string, string> = {
-  W: "bg-[#f8f2df] text-[#3b3428]",
-  U: "bg-[#9cd3f2] text-[#0e3348]",
-  B: "bg-[#4b4453] text-[#e6dff0]",
-  R: "bg-[#e78a72] text-[#4a1710]",
-  G: "bg-[#8fc79a] text-[#12351c]",
-  C: "bg-surface-2 text-muted",
-};
 
 type Row = {
   rank: number;
@@ -94,12 +79,7 @@ export function PopularCommanders({
     return rows.filter((row) => {
       if (ownedOnly && !row.owned) return false;
       if (q && !row.name.toLowerCase().includes(q)) return false;
-      if (colours.size > 0) {
-        const identity = row.colours === "" ? ["C"] : [...row.colours];
-        if (identity.length !== colours.size) return false;
-        if (!identity.every((c) => colours.has(c))) return false;
-      }
-      return true;
+      return matchesColours(row.colours, colours);
     });
   }, [rows, query, colours, ownedOnly]);
 
@@ -119,141 +99,154 @@ export function PopularCommanders({
 
   return (
     <>
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setPage(0);
-        }}
-        placeholder="Search commanders…"
-        aria-label="Search commanders"
-        className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm outline-none placeholder:text-muted focus:border-accent/60"
-      />
-
-      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
-        <div className="flex items-center gap-1.5">
-          {COLOURS.map(({ key, label }) => {
-            const on = colours.has(key);
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => toggleColour(key)}
-                aria-pressed={on}
-                aria-label={label}
-                title={label}
-                className={`grid h-7 w-7 place-items-center rounded-full text-[11px] font-bold transition ${
-                  PIP_STYLES[key]
-                } ${on ? "ring-2 ring-accent" : "opacity-45 hover:opacity-80"}`}
-              >
-                {key}
-              </button>
-            );
-          })}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => {
-            setOwnedOnly((v) => !v);
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 text-sm">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
             setPage(0);
           }}
-          aria-pressed={ownedOnly}
-          className={`rounded-md border px-2.5 py-1 ${
-            ownedOnly
-              ? "border-accent text-accent"
-              : "border-border text-muted hover:text-foreground"
-          }`}
-        >
-          Only ones I own
-        </button>
+          placeholder="Search commanders"
+          aria-label="Search commanders"
+          className={`w-full sm:w-64 ${input}`}
+        />
 
-        <span className="ml-auto text-xs text-muted">
+        <ColourFilter selected={colours} onToggle={toggleColour} />
+
+        <div className={segmented} role="group" aria-label="Show">
+          <button
+            type="button"
+            onClick={() => {
+              setOwnedOnly(false);
+              setPage(0);
+            }}
+            aria-pressed={!ownedOnly}
+            className={segment(!ownedOnly)}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setOwnedOnly(true);
+              setPage(0);
+            }}
+            aria-pressed={ownedOnly}
+            className={segment(ownedOnly)}
+          >
+            Only ones I own
+          </button>
+        </div>
+
+        <span className="ml-auto text-xs tabular-nums text-muted">
           {filtered.length.toLocaleString()} of {rows.length.toLocaleString()}
         </span>
       </div>
 
-      <ul className="mt-4 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
-        {visible.map((row) => {
-          const price = prices ? gbpPrice(prices, row.cardIndex) : undefined;
-          const percent = completion.get(row.slug);
-          const image = printings ? cardImageUrl(printings, row.cardIndex) : undefined;
-          return (
-            <li key={row.slug}>
-              <HoverCard
-                image={image}
-                name={row.name}
-                className="flex items-center gap-3 px-3 py-2 text-sm"
-              >
-                <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted">
-                  {row.rank}
-                </span>
+      <div className="mt-6 bg-sheet outline outline-1 outline-rule">
+        <div className="hidden grid-cols-[3rem_5rem_minmax(0,1fr)_5rem_6rem_10rem_4rem] items-center gap-4 border-b border-ink px-4 py-2.5 text-xs font-bold text-muted md:grid">
+          <span className="text-right">#</span>
+          <span />
+          <span>Commander</span>
+          <span>Colours</span>
+          <span className="text-right">Decks</span>
+          <span>You</span>
+          <span />
+        </div>
+        <ul className="divide-y divide-rule">
+          {visible.map((row) => {
+            const price = prices ? gbpPrice(prices, row.cardIndex) : undefined;
+            const percent = completion.get(row.slug);
+            const image = printings ? cardImageUrl(printings, row.cardIndex) : undefined;
+            const art = printings ? artCropUrl(printings, row.cardIndex) : undefined;
+            return (
+              <li key={row.slug}>
+                <HoverCard
+                  image={image}
+                  name={row.name}
+                  className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-4 px-4 py-2 text-sm md:grid-cols-[3rem_5rem_minmax(0,1fr)_5rem_6rem_10rem_4rem]"
+                >
+                  <span className="text-right font-semibold tabular-nums text-muted">{row.rank}</span>
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  {/* Art is never dimmed for unowned rows; only the text is muted. */}
+                  <span className="relative hidden aspect-[626/457] w-20 bg-wash md:block">
+                    {art && (
+                      <Image src={art} alt="" fill unoptimized sizes="80px" className="object-cover" />
+                    )}
+                  </span>
+
+                  <div className="min-w-0">
                     {row.owned ? (
                       <Link
                         href={`/commander/${row.slug}`}
-                        className="truncate font-medium hover:text-accent hover:underline"
+                        className="block truncate font-semibold hover:underline"
                       >
                         {row.name}
                       </Link>
                     ) : (
-                      <span className="truncate text-muted">{row.name}</span>
+                      <span className="block truncate text-muted">{row.name}</span>
                     )}
-                    <ColourPips colours={row.colours} />
-                    {row.owned && (
-                      <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-[#7bd88f]">
-                        owned
-                      </span>
-                    )}
-                  </div>
-                  {row.themes.length > 0 && (
-                    <p className="truncate text-[11px] text-muted">
-                      {row.themes.slice(0, 4).join(" · ")}
+                    <p className="truncate text-xs text-quiet">
+                      {row.themes.slice(0, 3).join(" · ")}
+                      {price !== undefined && (
+                        <>
+                          {row.themes.length > 0 && " · "}
+                          {formatGbp(price)}
+                        </>
+                      )}
                     </p>
-                  )}
-                </div>
+                  </div>
 
-                {percent !== undefined && (
-                  <span className="shrink-0 text-xs tabular-nums text-muted">
-                    {Math.round(percent)}%
+                  <span className="hidden md:block">
+                    <ColourPips colours={row.colours} />
                   </span>
-                )}
-                {price !== undefined && (
-                  <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted">
-                    {formatGbp(price)}
+
+                  <span className="hidden text-right tabular-nums text-muted md:block">
+                    {row.decks.toLocaleString()}
                   </span>
-                )}
-                <span className="w-16 shrink-0 text-right text-xs tabular-nums text-muted">
-                  {row.decks.toLocaleString()}
-                </span>
-                <a
-                  href={`https://edhrec.com/commanders/${row.slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-xs text-muted underline hover:text-foreground"
-                >
-                  EDHREC
-                </a>
-              </HoverCard>
-            </li>
-          );
-        })}
-      </ul>
+
+                  <span className="flex items-center gap-2.5 text-xs font-bold tabular-nums">
+                    {row.owned ? (
+                      percent !== undefined ? (
+                        <>
+                          <Meter percent={percent} className="hidden w-20 md:block" />
+                          {Math.round(percent)}%
+                        </>
+                      ) : (
+                        "Owned"
+                      )
+                    ) : (
+                      <span className="font-medium text-quiet">Not owned</span>
+                    )}
+                  </span>
+
+                  <a
+                    href={`https://edhrec.com/commanders/${row.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hidden text-right text-xs text-muted underline hover:text-ink md:block"
+                  >
+                    EDHREC
+                  </a>
+                </HoverCard>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
 
       {visible.length === 0 && (
         <p className="mt-4 text-sm text-muted">No commander matches those filters.</p>
       )}
 
       {pages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-4 text-sm">
+        <div className="mt-8 flex items-center justify-center gap-4 text-sm">
           <button
             type="button"
             onClick={() => setPage(current - 1)}
             disabled={current === 0}
-            className="rounded-md border border-border px-3 py-1 text-muted hover:text-foreground disabled:opacity-40"
+            className={buttonGhost}
           >
             ← Previous
           </button>
@@ -264,15 +257,15 @@ export function PopularCommanders({
             type="button"
             onClick={() => setPage(current + 1)}
             disabled={current >= pages - 1}
-            className="rounded-md border border-border px-3 py-1 text-muted hover:text-foreground disabled:opacity-40"
+            className={buttonGhost}
           >
             Next →
           </button>
         </div>
       )}
 
-      <p className="mt-3 text-xs text-muted">
-        Ranking and deck counts from EDHREC. Decklists live there — each row links across.
+      <p className="mt-4 text-xs text-quiet">
+        Ranking and deck counts from EDHREC. Decklists live there, and each row links across.
       </p>
     </>
   );

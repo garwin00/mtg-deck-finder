@@ -7,6 +7,7 @@ import { cardmarketUrl, formatGbp, gbpPrice, type PriceIndex } from "@/lib/price
 import { cardImageUrl, setCodeOf, setIconUrl, type PrintingIndex } from "@/lib/printings";
 import type { CardIndex } from "@/lib/types";
 import { HoverCard } from "./HoverCard";
+import { sectionHead } from "./ui";
 
 /** Above this, a card is specific to the commander rather than a general staple. */
 export const SIGNATURE_SYNERGY = 0.25;
@@ -37,10 +38,11 @@ export function CardGroup({
 
   return (
     <section>
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
-        {title} ({count})
+      <h2 className={`mb-4 ${sectionHead}`}>
+        <span>{title}</span>
+        <span>{count}</span>
       </h2>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-4 lg:grid-cols-6">
         {entries.map((entry) => (
           <CardTile
             key={entry.cardIndex}
@@ -105,8 +107,8 @@ function CardTile({
         colour-shifting card images, which the previous greyed-out treatment did.
       */}
       <div
-        className={`relative aspect-[488/680] w-full overflow-hidden rounded-lg bg-surface-2 ${
-          owned ? "" : "ring-2 ring-[#e07a6a]/70"
+        className={`relative aspect-[488/680] w-full overflow-hidden rounded-[6px] bg-wash shadow-[0_2px_6px_rgba(0,0,0,0.14)] ${
+          owned ? "" : "outline outline-2 outline-offset-2 outline-signal"
         }`}
       >
         {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
@@ -127,12 +129,12 @@ function CardTile({
           </span>
         )}
         {entry.needed > 1 && (
-          <span className="absolute left-1.5 top-1.5 rounded bg-background/80 px-1.5 py-0.5 text-[11px] font-semibold">
+          <span className="absolute left-1.5 top-1.5 rounded-[2px] bg-ink px-1.5 py-0.5 text-[11px] font-bold text-sheet">
             {entry.needed}×
           </span>
         )}
         {entry.card.gc === 1 && (
-          <span className="absolute right-1.5 top-1.5 rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-accent">
+          <span className="absolute right-1.5 top-1.5 rounded-[2px] bg-ink px-1 text-[10px] font-bold text-sheet">
             GC
           </span>
         )}
@@ -140,7 +142,7 @@ function CardTile({
 
       <div className="mt-1.5 space-y-0.5">
         <div className="flex items-center gap-1.5">
-          <p className="min-w-0 flex-1 truncate text-xs font-medium" title={entry.card.n}>
+          <p className="min-w-0 flex-1 truncate text-xs font-semibold" title={entry.card.n}>
             {entry.card.n}
           </p>
           {set && (
@@ -153,8 +155,8 @@ function CardTile({
               title={set.toUpperCase()}
               // Both dimensions are set because Tailwind's preflight applies
               // height:auto to images, which Next flags as a broken aspect
-              // ratio. Icons ship unfilled, hence the invert.
-              className="h-3 w-3 shrink-0 opacity-60 invert"
+              // ratio.
+              className="h-3 w-3 shrink-0 opacity-60"
             />
           )}
         </div>
@@ -163,7 +165,7 @@ function CardTile({
           {stat ? (
             <>
               {Math.round(stat.inclusion * 100)}% of decks
-              {signature && <span className="text-accent"> · signature</span>}
+              {signature && <span className="font-semibold text-ink"> · signature</span>}
             </>
           ) : (
             entry.card.r
@@ -171,7 +173,7 @@ function CardTile({
         </p>
 
         <p
-          className={`truncate text-[11px] ${owned || partial ? "text-muted" : "text-[#e07a6a]"}`}
+          className={`truncate text-[11px] ${owned || partial ? "text-muted" : "font-semibold text-signal"}`}
           title={note}
         >
           {note ?? (owned
@@ -220,7 +222,7 @@ function BasicTile({
   const image = printings ? cardImageUrl(printings, cardIndex) : undefined;
   return (
     <div>
-      <div className="relative aspect-[488/680] w-full overflow-hidden rounded-lg bg-surface-2">
+      <div className="relative aspect-[488/680] w-full overflow-hidden rounded-[6px] bg-wash">
         {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
         {image && (
           <Image
@@ -238,12 +240,12 @@ function BasicTile({
             {name}
           </span>
         )}
-        <span className="absolute left-1.5 top-1.5 rounded bg-background/80 px-1.5 py-0.5 text-[11px] font-semibold">
+        <span className="absolute left-1.5 top-1.5 rounded-[2px] bg-ink px-1.5 py-0.5 text-[11px] font-bold text-sheet">
           {needed}×
         </span>
       </div>
       <div className="mt-1.5 space-y-0.5">
-        <p className="truncate text-xs font-medium">{name}</p>
+        <p className="truncate text-xs font-semibold">{name}</p>
         <p className="text-[11px] text-muted">Mana base</p>
       </div>
     </div>

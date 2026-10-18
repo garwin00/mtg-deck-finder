@@ -1,13 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import type { DeckMatch } from "@/lib/match";
 import type { BracketMix, OwnedCommander } from "@/lib/edhrec";
-import { CommanderTabs } from "./CommanderTabs";
+import type { PrintingIndex } from "@/lib/printings";
+import { CommanderHeader } from "./CommanderHeader";
 import { DeckCard } from "./DeckCard";
 
 type Props = {
   commander: OwnedCommander;
+  printings: PrintingIndex | null;
   brackets?: BracketMix;
   matches: DeckMatch[] | null;
   loaded: number;
@@ -15,54 +16,21 @@ type Props = {
 };
 
 /**
- * The decks buildable with one commander, ranked by how close the collection
- * already is. Scoring every variant up front is the point — browsing blind
- * would mean opening each one to find out.
+ * The decks buildable with one commander, each scored against the collection.
+ * Scoring every variant up front is the point — browsing blind would mean
+ * opening each one to find out.
  */
-export function CommanderDecks({ commander, brackets, matches, loaded, total }: Props) {
-  // EDHREC publish no prose about a commander, so this is assembled from what
-  // they do publish: the themes people build, and the brackets they report.
-  const themes = [...commander.tribes, ...commander.archetypes];
-  const playstyle = themes.length
-    ? `Usually built as ${themes.slice(0, 3).join(", ")}${themes.length > 3 ? ` and ${themes.length - 3} other themes` : ""}.`
-    : null;
-
+export function CommanderDecks({ commander, printings, brackets, matches, loaded, total }: Props) {
   return (
     <section>
-      <Link href="/" className="text-sm text-muted underline hover:text-foreground">
-        ← Back to your commanders
-      </Link>
-
-      <div className="mt-3 flex items-baseline justify-between gap-4">
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold">{commander.name}</h2>
-          {playstyle && <p className="mt-0.5 text-sm text-muted">{playstyle}</p>}
-          {brackets && (
-            <p
-              className="mt-0.5 text-xs text-muted"
-              title={[1, 2, 3, 4, 5]
-                .map(
-                  (b) =>
-                    `Bracket ${b}: ${Math.round(((brackets.counts[b] ?? 0) / brackets.total) * 100)}%`
-                )
-                .join(" · ")}
-            >
-              Most decks are bracket {brackets.mode} · average{" "}
-              {brackets.mean.toFixed(1)} across {brackets.total.toLocaleString()} decks on EDHREC
-            </p>
-          )}
-        </div>
-        <span className="shrink-0 text-xs text-muted">
-          {matches ? `${matches.length} decks` : `${loaded} / ${total}`}
-        </span>
-      </div>
-
-      <CommanderTabs slug={commander.slug} active="decks" />
+      <CommanderHeader commander={commander} printings={printings} brackets={brackets} active="decks" />
 
       {!matches ? (
-        <p className="mt-4 text-sm text-muted">Scoring decks from EDHREC…</p>
+        <p className="mt-6 text-sm text-muted">
+          Scoring decks from EDHREC… {total > 0 && `${loaded} of ${total}`}
+        </p>
       ) : (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {matches.map((match) => (
             <DeckCard
               key={match.deck.id}

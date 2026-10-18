@@ -8,15 +8,13 @@ export function CommanderTabs({ slug, active }: { slug: string; active: "decks" 
   ] as const;
 
   return (
-    <nav className="mt-4 flex gap-1 border-b border-border">
+    <nav className="mt-8 flex gap-6 border-b border-ink">
       {tabs.map((tab) => (
         <Link
           key={tab.key}
           href={tab.href}
-          className={`-mb-px border-b-2 px-3 py-2 text-sm transition ${
-            tab.key === active
-              ? "border-accent text-foreground"
-              : "border-transparent text-muted hover:text-foreground"
+          className={`-mb-px border-b-2 py-2.5 text-sm font-semibold transition-colors ${
+            tab.key === active ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink"
           }`}
         >
           {tab.label}

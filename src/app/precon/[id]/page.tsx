@@ -29,7 +29,7 @@ export default function PreconPage({ params }: { params: Promise<{ id: string }>
           prices={state.prices}
           printings={state.printings}
           backHref="/"
-          backLabel="Back to your decks"
+          backLabel="Your commanders"
         />
       )}
     </main>

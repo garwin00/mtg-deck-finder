@@ -58,7 +58,7 @@ export function manaValueOf(printings: PrintingIndex, cardIndex: number): number
   return cmc === undefined ? undefined : cmc;
 }
 
-/** Scryfall's set icons are unfilled, so they need inverting on a dark ground. */
+/** Scryfall's set icons are unfilled black, which reads directly on the light page. */
 export function setIconUrl(set: string): string {
   return `https://svgs.scryfall.io/sets/${set}.svg`;
 }

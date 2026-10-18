@@ -104,11 +104,13 @@ opened on someone else's device still has no collection —
 | `src/lib/collection-context.tsx` | All collection state, and the upload pipeline. |
 | `src/lib/images.ts` | Card images from Scryfall's `/cards/collection` (75 names per POST, CORS-open) — which is why no image URLs are stored in the index. |
 | `src/components/CollectionGrid.tsx` | Owned cards, filtered and paged. Pages at 60 so each page is one Scryfall image request rather than 35 up front. |
-| `src/components/DeckView.tsx` | A deck as card images, owned in colour and missing dimmed. |
+| `src/components/DeckView.tsx` | A deck page: commander header, the card table, then the missing list and buy panel. |
+| `src/components/CardTable.tsx` | A deck dealt into piles by role as cascading cards; missing cards are priced proxy slips. Shared by deck pages and the filled build. |
 | `src/components/HoverCard.tsx` | Full-card preview at the cursor. Portals to body so scroll containers can't clip it. |
 | `src/lib/build.ts` | The build tab: owned picks by synergy, the tiered fill to 99, decklist export. |
-| `src/components/CardGroup.tsx` | Card-image grid and tiles, shared by the deck view and the build tab. |
-| `src/components/ManaCurve.tsx` | Mana curve, split owned/missing. Lands excluded, as a curve conventionally is. |
+| `src/components/CardGroup.tsx` | Card-image grid with captions, for the build tab's synergy list. |
+| `src/components/ui.ts` | Class strings for shared controls and page titles. |
+| `src/components/ManaCurve.tsx` | Mana curve as stacks of card bars, owned in ink and missing outlined in red. Lands excluded, as a curve conventionally is. |
 
 **Going public is not the current scope**, but the constraints it would impose
 are recorded in `GOING-PUBLIC.md` — chiefly that greying out missing cards
@@ -248,10 +250,16 @@ collection. Read it before changing how images are fetched or displayed.
   `categorise`, `ColourPips`). Match it.
 - Comments explain *why*, not what — and are earned, not decorative. The
   existing density is the target.
-- Tailwind utility classes only. Theme colours come from the CSS variables in
-  `src/app/globals.css` (`bg-surface`, `text-muted`, `border-border`,
-  `text-accent`); one-off hex values are used sparingly for semantic states
-  (green owned / red missing) and should stay rare.
+- Tailwind utility classes only. The look is a **print sheet**: paper, ink and
+  one signal red, set in Funnel Display. Colours come from the tokens in
+  `src/app/globals.css` (`bg-page`, `bg-sheet`, `bg-wash`, `border-rule`,
+  `text-ink`, `text-muted`, `text-quiet`, `text-signal`); avoid one-off hex.
+  **Signal red means only "missing" or "costs money"**, so keep it off
+  anything else. Printer's crop marks (`crop-marks`) are the one decorative
+  motif. Shared control classes (buttons, inputs, segmented controls, page
+  titles) live in `src/components/ui.ts`; use them rather than restyling.
+- Card art and card images are never dimmed, tinted or filtered, owned or not:
+  Scryfall's terms forbid it. A missing card is shown as a proxy slip instead.
 - `"use client"` on any component with state or handlers; `src/lib/*` stays
   framework-free and testable.
 - Data-shape types are `type`, not `interface`.

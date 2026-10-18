@@ -185,7 +185,7 @@ function PileCard({
         </span>
       </div>
       {/* The hatched panel stands in for the art a proxy doesn't have. */}
-      <div className="mx-[3px] my-2 grid flex-1 place-items-center bg-[repeating-linear-gradient(135deg,var(--sheet)_0_5px,#f1f1ee_5px_6px)] text-[11px] font-bold uppercase tracking-[0.08em] text-quiet">
+      <div className="mx-[3px] my-2 grid flex-1 place-items-center bg-[repeating-linear-gradient(135deg,var(--sheet)_0_5px,var(--wash)_5px_6px)] text-[11px] font-bold uppercase tracking-[0.08em] text-quiet">
         {entry.have > 0 ? `${entry.have} of ${entry.needed} owned` : "Proxy"}
       </div>
       <div className="flex justify-between px-[3px] text-[9px] text-quiet">

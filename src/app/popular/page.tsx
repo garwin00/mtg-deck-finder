@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { PopularCommanders } from "@/components/PopularCommanders";
 import { useRequireCollection } from "@/components/CollectionGate";
+import { lede, pageTitle } from "@/components/ui";
 
 const MILESTONES = [10, 50, 100, 250];
 
@@ -33,19 +34,16 @@ export default function PopularPage() {
   if (!state || !state.catalogue || !summary) return null;
 
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Popular commanders</h1>
-        <p className="mt-1 text-sm text-muted">
-          {summary.commanders.toLocaleString()} commanders across{" "}
-          {summary.decks.toLocaleString()} decks on EDHREC.
-        </p>
-        <p className="mt-1 text-sm text-muted">
-          You own{" "}
+    <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-12">
+      <header className="mb-8">
+        <h1 className={pageTitle}>Popular commanders</h1>
+        <p className={lede}>
+          EDHREC&apos;s most-built commanders, {summary.commanders.toLocaleString()} of them across{" "}
+          {summary.decks.toLocaleString()} decks. You own{" "}
           {summary.owned.map(({ n, held }, i) => (
             <span key={n}>
               {i > 0 && ", "}
-              <span className="text-foreground">{held}</span> of the top {n}
+              <span className="font-semibold text-ink">{held}</span> of the top {n}
             </span>
           ))}
           .

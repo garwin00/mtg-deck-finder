@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { DeckView } from "@/components/DeckView";
 import { useRequireCollection } from "@/components/CollectionGate";
+import { errorBox } from "@/components/ui";
 import { fetchAverageDeck, fetchCommanderData, type CardStat } from "@/lib/edhrec";
 import { matchDecks, type DeckMatch } from "@/lib/match";
 
@@ -72,7 +73,7 @@ export default function CommanderDeckPage({
       {!commander ? (
         <p className="text-sm text-muted">That commander isn&apos;t in your collection.</p>
       ) : current?.error ? (
-        <p className="rounded-lg border border-[#e07a6a]/40 bg-[#e07a6a]/10 p-4 text-sm">
+        <p className={errorBox}>
           Couldn&apos;t load that deck from EDHREC: {current.error}
         </p>
       ) : !current?.match ? (

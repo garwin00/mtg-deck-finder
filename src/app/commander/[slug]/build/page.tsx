@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { BuildView } from "@/components/BuildView";
 import { useRequireCollection } from "@/components/CollectionGate";
+import { errorBox } from "@/components/ui";
 import { buildDeck, recommend, type BuiltDeck, type Recommendation } from "@/lib/build";
 import {
   fetchAverageDeck,
@@ -99,7 +100,7 @@ export default function CommanderBuildPage({ params }: { params: Promise<{ slug:
       {!commander ? (
         <p className="text-sm text-muted">That commander isn&apos;t in your collection.</p>
       ) : current?.error ? (
-        <p className="rounded-lg border border-[#e07a6a]/40 bg-[#e07a6a]/10 p-4 text-sm">
+        <p className={errorBox}>
           Couldn&apos;t load {commander.name} from EDHREC: {current.error}
         </p>
       ) : (
