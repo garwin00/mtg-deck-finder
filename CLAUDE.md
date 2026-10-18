@@ -110,7 +110,7 @@ opened on someone else's device still has no collection —
 | `src/lib/build.ts` | The build tab: owned picks by synergy, the tiered fill to 99, decklist export. |
 | `src/components/CardGroup.tsx` | Card-image grid with captions, for the build tab's synergy list. |
 | `src/components/ui.ts` | Class strings for shared controls and page titles. |
-| `src/components/ManaCurve.tsx` | Mana curve as stacks of card bars, owned in ink and missing outlined in red. Lands excluded, as a curve conventionally is. |
+| `src/components/ManaCurve.tsx` | Mana curve as one bar per mana value in a fixed-height plot, owned in ink and missing outlined in red above it. Lands excluded, as a curve conventionally is. |
 
 **Going public is not the current scope**, but the constraints it would impose
 are recorded in `GOING-PUBLIC.md` — chiefly that greying out missing cards
