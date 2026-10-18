@@ -78,6 +78,7 @@ the UI, so keep it true.
 | `/popular` | EDHREC's commander ranking, with ownership and completion over it. |
 | `/commander/[slug]` | Deck variants for one commander, scored. |
 | `/commander/[slug]/[theme]` | A deck as card images. `average` is the literal for the overall list. |
+| `/commander/[slug]/build` | Owned cards EDHREC lists for the commander, by synergy, and a Fill to 99. |
 | `/precon/[id]` | The same view for a precon. |
 
 State lives in `CollectionProvider` (mounted in `layout.tsx`) so it survives
@@ -105,6 +106,8 @@ opened on someone else's device still has no collection —
 | `src/components/CollectionGrid.tsx` | Owned cards, filtered and paged. Pages at 60 so each page is one Scryfall image request rather than 35 up front. |
 | `src/components/DeckView.tsx` | A deck as card images, owned in colour and missing dimmed. |
 | `src/components/HoverCard.tsx` | Full-card preview at the cursor. Portals to body so scroll containers can't clip it. |
+| `src/lib/build.ts` | The build tab: owned picks by synergy, the tiered fill to 99, decklist export. |
+| `src/components/CardGroup.tsx` | Card-image grid and tiles, shared by the deck view and the build tab. |
 | `src/components/ManaCurve.tsx` | Mana curve, split owned/missing. Lands excluded, as a curve conventionally is. |
 
 **Going public is not the current scope**, but the constraints it would impose
@@ -224,6 +227,18 @@ collection. Read it before changing how images are fetched or displayed.
   "you own 10 of the top 100", are the reason to browse it here. Every row links
   out to them for the decklists. Do not start hosting that ranking as if it were
   ours.
+- **The build tab fills down tiers, strongest evidence first.** Owned cards on
+  the commander's EDHREC page, by synergy; then its top three themes as EDHREC
+  tag pages for its colour identity (`tags/<theme>/<colours>`), which is where
+  cards outside its tribe come from; then the lists of its top three similar
+  commanders; then anything else owned in its colours, by EDHREC's overall
+  rank (`printings.json` `rank`). Every filled card says which tier it came
+  from. The land count, the nonbasic cap and the basics' split all come from
+  the commander's average deck rather than a number chosen here: without the
+  cap a large collection fills every land slot with taplands. The fill's six
+  extra requests are made only when the user presses Fill. Cards Scryfall
+  doesn't call Commander-legal carry `ban` in `cards.json` and are never
+  suggested.
 - **Commander decks lead, precons are secondary.** Precons sit below the fold
   behind a Show toggle: for a real collection they mostly restate purchases.
 

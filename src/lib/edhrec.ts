@@ -80,17 +80,43 @@ type AverageDeck = {
   };
 };
 
-type CommanderPage = {
-  tag_counts?: { slug: string; value: string; count: number }[];
-  bracket_counts?: Record<string, number>;
+type CardLists = {
   container?: {
     json_dict?: {
       cardlists?: {
-        cardviews: { name: string; num_decks: number; potential_decks: number; synergy: number }[];
+        cardviews: { name: string; num_decks: number; potential_decks: number; synergy?: number }[];
       }[];
     };
   };
 };
+
+type CommanderPage = CardLists & {
+  tag_counts?: { slug: string; value: string; count: number }[];
+  bracket_counts?: Record<string, number>;
+  /** Names of commanders EDHREC considers alike, closest first. */
+  similar?: string[];
+};
+
+const EDHREC = "https://json.edhrec.com/pages";
+
+/**
+ * The deck list and the build tab both read a commander's page, and switching
+ * between them shouldn't fetch it twice. A failed fetch is dropped from the
+ * cache so a retry can succeed.
+ */
+const commanderPages = new Map<string, Promise<CommanderPage | null>>();
+
+function fetchCommanderPage(slug: string): Promise<CommanderPage | null> {
+  let page = commanderPages.get(slug);
+  if (!page) {
+    page = fetch(`${EDHREC}/commanders/${slug}.json`)
+      .then((res) => (res.ok ? (res.json() as Promise<CommanderPage>) : null))
+      .catch(() => null);
+    page.then((p) => p ?? commanderPages.delete(slug));
+    commanderPages.set(slug, page);
+  }
+  return page;
+}
 
 /** How a card is actually used, which the card face can't tell you. */
 export type CardStat = {
@@ -147,9 +173,8 @@ export async function fetchCommanderData(commander: OwnedCommander): Promise<Com
   let brackets: BracketMix | undefined;
 
   try {
-    const res = await fetch(`https://json.edhrec.com/pages/commanders/${commander.slug}.json`);
-    if (res.ok) {
-      const page = (await res.json()) as CommanderPage;
+    const page = await fetchCommanderPage(commander.slug);
+    if (page) {
       for (const tag of page.tag_counts ?? []) {
         if (tag.count < MIN_THEME_DECKS || variants.length > MAX_THEMES) break;
         variants.push({ theme: tag.slug, label: tag.value, numDecks: tag.count });
@@ -172,7 +197,7 @@ export async function fetchCommanderData(commander: OwnedCommander): Promise<Com
           if (stats.has(card.name) || !card.potential_decks) continue;
           stats.set(card.name, {
             inclusion: card.num_decks / card.potential_decks,
-            synergy: card.synergy,
+            synergy: card.synergy ?? 0,
           });
         }
       }
@@ -197,7 +222,7 @@ export async function fetchAverageDeck(
   index: CardIndex
 ): Promise<DeckSource> {
   const path = variant.theme ? `${commander.slug}/${variant.theme}` : commander.slug;
-  const res = await fetch(`https://json.edhrec.com/pages/average-decks/${path}.json`);
+  const res = await fetch(`${EDHREC}/average-decks/${path}.json`);
   if (!res.ok) throw new Error(`EDHREC returned ${res.status} for ${commander.name}`);
   const payload = (await res.json()) as AverageDeck;
 
@@ -238,4 +263,106 @@ export async function fetchAverageDeck(
     basics: [...basics],
     cards,
   };
+}
+
+/**
+ * EDHREC's names for each colour identity, keyed the way `CardRecord.ci` spells
+ * it (letters sorted alphabetically). Their tag pages are published per identity.
+ */
+const COLOUR_SLUGS: Record<string, string> = {
+  "": "colorless",
+  W: "mono-white",
+  U: "mono-blue",
+  B: "mono-black",
+  R: "mono-red",
+  G: "mono-green",
+  UW: "azorius",
+  BU: "dimir",
+  BR: "rakdos",
+  GR: "gruul",
+  GW: "selesnya",
+  BW: "orzhov",
+  RU: "izzet",
+  BG: "golgari",
+  RW: "boros",
+  GU: "simic",
+  GUW: "bant",
+  BUW: "esper",
+  BRU: "grixis",
+  BGR: "jund",
+  GRW: "naya",
+  BGW: "abzan",
+  RUW: "jeskai",
+  BGU: "sultai",
+  BRW: "mardu",
+  GRU: "temur",
+  BGRU: "glint-eye",
+  BGRW: "dune-brood",
+  GRUW: "ink-treader",
+  BGUW: "witch-maw",
+  BRUW: "yore-tiller",
+  BGRUW: "five-color",
+};
+
+/** Where a filled card came from, so the deck can say why it's there. */
+export type FillReason =
+  | { tier: "commander" }
+  | { tier: "theme"; label: string }
+  | { tier: "similar"; commander: string }
+  | { tier: "colours" };
+
+/** Card names from one EDHREC page, highest synergy first. */
+export type FillTier = { reason: FillReason; names: string[] };
+
+/** How many of the commander's themes, and of its similar commanders, to draw on. */
+const FILL_THEMES = 3;
+const FILL_SIMILAR = 3;
+
+function namesBySynergy(page: CardLists | null): string[] {
+  const cards = (page?.container?.json_dict?.cardlists ?? []).flatMap((l) => l.cardviews);
+  return cards.sort((a, b) => (b.synergy ?? 0) - (a.synergy ?? 0)).map((c) => c.name);
+}
+
+/**
+ * The fill's sources after the commander's own list, in the order they're
+ * drawn on: the commander's most-built themes as EDHREC tag pages for its
+ * colour identity, then the lists of the commanders EDHREC calls similar. The
+ * tag pages are where cards outside its tribe come from: Tokens or Lifegain
+ * cards for a Vampires commander. Up to six requests, so only made on Fill.
+ */
+export async function fetchFillTiers(
+  commander: OwnedCommander,
+  catalogue: CommanderCatalogue,
+  index: CardIndex
+): Promise<FillTier[]> {
+  const page = await fetchCommanderPage(commander.slug);
+  if (!page) return [];
+  const colours = COLOUR_SLUGS[commander.colours];
+
+  const themes = colours
+    ? (page.tag_counts ?? []).slice(0, FILL_THEMES).map(async (tag): Promise<FillTier> => {
+        const res = await fetch(`${EDHREC}/tags/${tag.slug}/${colours}.json`).catch(() => null);
+        const tagPage = res?.ok ? ((await res.json()) as CardLists) : null;
+        return { reason: { tier: "theme", label: tag.value }, names: namesBySynergy(tagPage) };
+      })
+    : [];
+
+  // Similar commanders arrive by name; the catalogue holds their exact slugs.
+  const slugByCard = new Map(catalogue.decks.map((d) => [d.c, d.s]));
+  const similar = (page.similar ?? [])
+    .map((name) => {
+      const cardIndex = lookupKeys(name)
+        .map((k) => index.aliases[k])
+        .find((i) => i !== undefined);
+      const slug = cardIndex === undefined ? undefined : slugByCard.get(cardIndex);
+      return slug ? { name, slug } : undefined;
+    })
+    .filter((s) => s !== undefined)
+    .slice(0, FILL_SIMILAR)
+    .map(async ({ name, slug }): Promise<FillTier> => ({
+      reason: { tier: "similar", commander: name },
+      names: namesBySynergy(await fetchCommanderPage(slug)),
+    }));
+
+  return Promise.all([...themes, ...similar]);
 }

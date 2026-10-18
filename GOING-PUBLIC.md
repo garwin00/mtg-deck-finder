@@ -66,6 +66,7 @@ Measured on a real 5,851-card collection:
 | --- | --- | --- |
 | Score every owned commander | 188 | 7.7MB |
 | Open one commander and a deck | 2 | 0.41MB |
+| Build tab, then Fill to 99 | 2, then up to 6 | not yet measured |
 
 Scores are cached against a collection fingerprint, so it is once per collection
 rather than once per session. Fine for one person. With a public audience it is

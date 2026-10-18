@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { DeckMatch } from "@/lib/match";
 import type { BracketMix, OwnedCommander } from "@/lib/edhrec";
+import { CommanderTabs } from "./CommanderTabs";
 import { DeckCard } from "./DeckCard";
 
 type Props = {
@@ -55,6 +56,8 @@ export function CommanderDecks({ commander, brackets, matches, loaded, total }: 
           {matches ? `${matches.length} decks` : `${loaded} / ${total}`}
         </span>
       </div>
+
+      <CommanderTabs slug={commander.slug} active="decks" />
 
       {!matches ? (
         <p className="mt-4 text-sm text-muted">Scoring decks from EDHREC…</p>
