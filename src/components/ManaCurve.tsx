@@ -5,6 +5,13 @@ import type { DeckEntry } from "@/lib/match";
 
 const BUCKETS = 8;
 const TOP_BUCKET = BUCKETS - 1;
+/**
+ * The plot is a fixed height and the card bars scale to fit the tallest stack,
+ * so the header doesn't change height between decks, or when a deck is filled.
+ */
+const PLOT_HEIGHT = 120;
+/** Each card's slot at most: a 5px bar and a 2px gap, as when few cards share a cost. */
+const MAX_STEP = 7;
 
 /**
  * Mana curve drawn as stacks of cards: one bar per card, ink for owned and an
@@ -36,6 +43,12 @@ export function ManaCurve({
 
   if (cards === 0) return null;
 
+  const tallest = Math.max(...buckets.map((b) => b.owned + b.missing), 1);
+  const step = Math.min(MAX_STEP, PLOT_HEIGHT / tallest);
+  // Keep a visible gap between cards however tight the stack gets.
+  const gap = step >= 4 ? 2 : 1;
+  const bar = { height: step - gap, marginTop: gap };
+
   return (
     <div className="flex items-end gap-4">
       <div className="flex items-end gap-2.5" role="img" aria-label="Mana curve, lands excluded">
@@ -47,12 +60,16 @@ export function ManaCurve({
               className="flex flex-col items-center"
               title={`${label} mana: ${bucket.owned} owned, ${bucket.missing} missing`}
             >
-              <div className="flex flex-col-reverse gap-0.5">
+              <div className="flex flex-col-reverse justify-start" style={{ height: PLOT_HEIGHT }}>
                 {Array.from({ length: bucket.owned }, (_, j) => (
-                  <i key={`o${j}`} className="block h-[5px] w-[18px] bg-ink" />
+                  <i key={`o${j}`} className="block w-[18px] bg-ink" style={bar} />
                 ))}
                 {Array.from({ length: bucket.missing }, (_, j) => (
-                  <i key={`m${j}`} className="block h-[5px] w-[18px] outline outline-1 -outline-offset-1 outline-signal" />
+                  <i
+                    key={`m${j}`}
+                    className="block w-[18px] outline outline-1 -outline-offset-1 outline-signal"
+                    style={bar}
+                  />
                 ))}
               </div>
               <span className="mt-1.5 text-[10px] font-semibold tabular-nums text-muted">{label}</span>
