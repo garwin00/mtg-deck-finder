@@ -1,33 +1,73 @@
 @import "tailwindcss";
 
+/*
+ * The print sheet: paper, ink and one signal red. Red means only "missing" or
+ * "costs money", so it stays legible as a signal; everything else is ink and
+ * greys. Card art supplies the colour.
+ */
 :root {
-  --background: #0b0d12;
-  --surface: #14171f;
-  --surface-2: #1b1f2a;
-  --border: #262c38;
-  --foreground: #e8e6e1;
-  --muted: #9aa2b1;
-  --accent: #c9a227;
+  --page: #f7f7f5;
+  --sheet: #ffffff;
+  --wash: #efefec;
+  --rule: #e2e2de;
+  --ink: #0a0a0a;
+  --muted: #6b6b6b;
+  --quiet: #9a9a96;
+  --signal: #ff3b1f;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-border: var(--border);
-  --color-foreground: var(--foreground);
+  --color-page: var(--page);
+  --color-sheet: var(--sheet);
+  --color-wash: var(--wash);
+  --color-rule: var(--rule);
+  --color-ink: var(--ink);
   --color-muted: var(--muted);
-  --color-accent: var(--accent);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-quiet: var(--quiet);
+  --color-signal: var(--signal);
+  --font-sans: var(--font-funnel);
+  /* Old names, mapped onto the print sheet until every page is restyled. */
+  --color-background: var(--page);
+  --color-surface: var(--sheet);
+  --color-surface-2: var(--wash);
+  --color-border: var(--rule);
+  --color-foreground: var(--ink);
+  --color-accent: var(--ink);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--page);
+  color: var(--ink);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--signal) 25%, transparent);
+}
+
+/*
+ * Printer's crop marks at two opposite corners: the one decorative motif, on
+ * the mark, the drop zone and every proxy. The element must be positioned.
+ */
+@utility crop-marks {
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    pointer-events: none;
+  }
+  &::before {
+    top: 4px;
+    left: 4px;
+    border-top: 1px solid var(--signal);
+    border-left: 1px solid var(--signal);
+  }
+  &::after {
+    right: 4px;
+    bottom: 4px;
+    border-right: 1px solid var(--signal);
+    border-bottom: 1px solid var(--signal);
+  }
 }
