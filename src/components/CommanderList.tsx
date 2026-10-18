@@ -5,8 +5,10 @@ import Image from "next/image";
 import Link from "next/link";
 import type { OwnedCommander } from "@/lib/edhrec";
 import { artCropUrl, cardImageUrl, type PrintingIndex } from "@/lib/printings";
-import { ColourPips } from "./ColourPips";
+import { ColourFilter, ColourPips, matchesColours } from "./ColourPips";
 import { HoverCard } from "./HoverCard";
+import { Meter } from "./Meter";
+import { input, lede, pageTitle, segment, segmented, select, sheetLink } from "./ui";
 
 type Props = {
   commanders: OwnedCommander[];
@@ -18,24 +20,6 @@ type Props = {
 };
 
 type Sort = "popularity" | "name" | "added" | "completion";
-
-const COLOURS = [
-  { key: "W", label: "White" },
-  { key: "U", label: "Blue" },
-  { key: "B", label: "Black" },
-  { key: "R", label: "Red" },
-  { key: "G", label: "Green" },
-  { key: "C", label: "Colourless" },
-];
-
-const PIP_STYLES: Record<string, string> = {
-  W: "bg-[#f8f2df] text-[#3b3428]",
-  U: "bg-[#9cd3f2] text-[#0e3348]",
-  B: "bg-[#4b4453] text-[#e6dff0]",
-  R: "bg-[#e78a72] text-[#4a1710]",
-  G: "bg-[#8fc79a] text-[#12351c]",
-  C: "bg-surface-2 text-muted",
-};
 
 /**
  * The commanders the collection can field. Opening one fetches its decks from
@@ -90,16 +74,7 @@ export function CommanderList({ commanders, printings, completion, scoring, onSc
       ) {
         return false;
       }
-      if (colours.size > 0) {
-        // Exactly the selection: picking U, B and R gives Grixis commanders
-        // only, not every mono-black and Dimir one that also fits inside it.
-        // Colourless is its own identity, so C alongside a colour matches
-        // nothing, which is correct — no commander is colourless plus black.
-        const identity = commander.colours === "" ? ["C"] : [...commander.colours];
-        if (identity.length !== colours.size) return false;
-        if (!identity.every((c) => colours.has(c))) return false;
-      }
-      return true;
+      return matchesColours(commander.colours, colours);
     });
 
     const sorted = [...filtered];
@@ -119,6 +94,12 @@ export function CommanderList({ commanders, printings, completion, scoring, onSc
     return sorted;
   }, [commanders, query, type, theme, colours, sort, completion]);
 
+  // Only meaningful once every commander has been scored.
+  const halfway =
+    completion.size >= commanders.length
+      ? commanders.filter((c) => (completion.get(c.slug) ?? 0) >= 50).length
+      : null;
+
   const filtering = query !== "" || type !== "" || theme !== "" || colours.size > 0;
 
   const toggleColour = (key: string) =>
@@ -131,47 +112,31 @@ export function CommanderList({ commanders, printings, completion, scoring, onSc
 
   return (
     <section>
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-          Your commanders
-        </h2>
-        <span className="text-xs text-muted">
-          {visible.length === commanders.length
-            ? commanders.length.toLocaleString()
-            : `${visible.length.toLocaleString()} of ${commanders.length.toLocaleString()}`}
-        </span>
-      </div>
+      <header>
+        <h1 className={pageTitle}>Your commanders</h1>
+        <p className={lede}>
+          <span className="font-semibold text-ink">{commanders.length.toLocaleString()}</span>{" "}
+          commanders in your collection
+          {halfway !== null && (
+            <>
+              , <span className="font-semibold text-ink">{halfway}</span> of them past halfway
+            </>
+          )}
+          .
+        </p>
+      </header>
 
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search your commanders…"
-        aria-label="Search your commanders"
-        className="mt-3 w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm outline-none placeholder:text-muted focus:border-accent/60"
-      />
+      <div className="mt-7 flex flex-wrap items-center gap-x-4 gap-y-3 text-sm">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search commanders"
+          aria-label="Search your commanders"
+          className={`w-full sm:w-64 ${input}`}
+        />
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
-        <div className="flex items-center gap-1.5">
-          {COLOURS.map(({ key, label }) => {
-            const on = colours.has(key);
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => toggleColour(key)}
-                aria-pressed={on}
-                aria-label={label}
-                title={label}
-                className={`grid h-7 w-7 place-items-center rounded-full text-[11px] font-bold transition ${
-                  PIP_STYLES[key]
-                } ${on ? "ring-2 ring-accent" : "opacity-45 hover:opacity-80"}`}
-              >
-                {key}
-              </button>
-            );
-          })}
-        </div>
+        <ColourFilter selected={colours} onToggle={toggleColour} />
 
         {types.length > 0 && (
           <label className="flex items-center gap-2 text-muted">
@@ -179,7 +144,7 @@ export function CommanderList({ commanders, printings, completion, scoring, onSc
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-accent/60"
+              className={select}
             >
               <option value="">Any</option>
               {types.map(([name, count]) => (
@@ -197,7 +162,7 @@ export function CommanderList({ commanders, printings, completion, scoring, onSc
             <select
               value={theme}
               onChange={(e) => setTheme(e.target.value)}
-              className="max-w-52 rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-accent/60"
+              className={`max-w-52 ${select}`}
             >
               <option value="">Any</option>
               {themes.tribes.length > 0 && (
@@ -222,8 +187,7 @@ export function CommanderList({ commanders, printings, completion, scoring, onSc
           </label>
         )}
 
-        <div className="flex items-center gap-2 text-muted">
-          Sort
+        <div className={segmented} role="group" aria-label="Sort">
           {(
             [
               ["popularity", "Popularity"],
@@ -241,11 +205,8 @@ export function CommanderList({ commanders, printings, completion, scoring, onSc
                 // the user asks to sort by it.
                 if (key === "completion") onScore();
               }}
-              className={`rounded-md border px-2.5 py-1 ${
-                sort === key
-                  ? "border-accent text-accent"
-                  : "border-border text-muted hover:text-foreground"
-              }`}
+              aria-pressed={sort === key}
+              className={segment(sort === key)}
             >
               {label}
             </button>
@@ -267,17 +228,23 @@ export function CommanderList({ commanders, printings, completion, scoring, onSc
               setTheme("");
               setColours(new Set());
             }}
-            className="text-muted underline hover:text-foreground"
+            className="text-muted underline hover:text-ink"
           >
             Clear filters
           </button>
+        )}
+
+        {filtering && (
+          <span className="ml-auto text-xs tabular-nums text-muted">
+            {visible.length.toLocaleString()} of {commanders.length.toLocaleString()}
+          </span>
         )}
       </div>
 
       {visible.length === 0 ? (
         <p className="mt-6 text-sm text-muted">No commander matches those filters.</p>
       ) : (
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
           {visible.map((commander) => (
             <CommanderCard
               key={commander.slug}
@@ -293,7 +260,7 @@ export function CommanderList({ commanders, printings, completion, scoring, onSc
         </div>
       )}
 
-      <p className="mt-3 text-xs text-muted">
+      <p className="mt-6 max-w-3xl text-xs text-quiet">
         Colour filters match an exact identity, so picking two colours excludes the mono-coloured
         commanders that would fit inside it. Sorting by completion scores each commander against
         its EDHREC average deck — one request each, then cached on this device
@@ -327,54 +294,49 @@ function CommanderCard({
     // Hovering shows the whole card, which also satisfies Scryfall's rule that
     // an art crop be accompanied by the full card or an artist credit.
     <HoverCard image={image} name={commander.name}>
-      <Link
-        href={`/commander/${commander.slug}`}
-        className="group flex flex-col overflow-hidden rounded-xl border border-border bg-surface text-left transition hover:border-accent/60"
-      >
-      {/* Scryfall art crops are 626x457; letting the tile take that ratio shows
-          the whole crop rather than a thin slice of it. */}
-      <div className="relative aspect-[626/457] w-full bg-surface-2">
-        {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
-        {art && (
-          <Image
-            src={art}
-            alt=""
-            fill
-            unoptimized
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover opacity-70 transition group-hover:opacity-95"
-          />
-        )}
-        {/* Scryfall require the artist to be credited wherever an art crop is
-            shown, unless the full card appears in the same interface. */}
-        {commander.artist && (
-          <span className="absolute bottom-0 right-0 max-w-full truncate bg-background/70 px-1.5 py-0.5 text-[9px] text-muted">
-            {commander.artist}
-          </span>
-        )}
-      </div>
-
-      <div className="flex flex-1 flex-col gap-1.5 p-3">
-        {/* Fixed to two lines so every card in the grid is the same height. */}
-        <h3
-          className="line-clamp-2 min-h-[2.4rem] text-sm font-medium leading-snug"
-          title={commander.name}
-        >
-          {title}
-        </h3>
-        <p className="min-h-4 truncate text-[11px] text-muted">{themes.join(" · ")}</p>
-        <div className="mt-auto flex items-center justify-between gap-2">
-          <ColourPips colours={commander.colours} />
-          {percent !== undefined && (
-            <span
-              className="text-xs tabular-nums text-muted"
-              title="How much of this commander's average deck you already own"
-            >
-              {Math.round(percent)}%
+      <Link href={`/commander/${commander.slug}`} className={`flex flex-col ${sheetLink}`}>
+        {/* Scryfall art crops are 626x457; letting the tile take that ratio shows
+            the whole crop rather than a thin slice of it. Never dimmed or
+            filtered: Scryfall's terms forbid altering the art. */}
+        <div className="relative aspect-[626/457] w-full bg-wash">
+          {/* Scryfall rejects Next's image optimiser, hence unoptimized. */}
+          {art && (
+            <Image
+              src={art}
+              alt=""
+              fill
+              unoptimized
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className="object-cover"
+            />
+          )}
+          {/* Scryfall require the artist to be credited wherever an art crop is
+              shown, unless the full card appears in the same interface. */}
+          {commander.artist && (
+            <span className="absolute bottom-0 right-0 max-w-full truncate bg-sheet/90 px-1.5 py-0.5 text-[9px] text-muted">
+              {commander.artist}
             </span>
           )}
         </div>
-      </div>
+
+        <div className="flex flex-1 flex-col px-3 pb-3.5 pt-3">
+          <h3 className="truncate text-[15px] font-bold tracking-[-0.01em]" title={commander.name}>
+            {title}
+          </h3>
+          <p className="min-h-[1.1rem] truncate text-xs text-muted">{themes.join(" · ")}</p>
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <ColourPips colours={commander.colours} />
+            {percent !== undefined && (
+              <span
+                className="text-[13px] font-bold tabular-nums"
+                title="How much of this commander's average deck you already own"
+              >
+                {Math.round(percent)}%
+              </span>
+            )}
+          </div>
+          {percent !== undefined && <Meter percent={percent} className="mt-2" />}
+        </div>
       </Link>
     </HoverCard>
   );

@@ -6,6 +6,7 @@ import { DeckCard } from "@/components/DeckCard";
 import { Dropzone } from "@/components/Dropzone";
 import { LoadingPanel } from "@/components/LoadingPanel";
 import { useCollection } from "@/lib/collection-context";
+import { buttonGhost, errorBox, lede, pageTitle, segment, segmented } from "@/components/ui";
 
 const THRESHOLDS = [0, 50, 70, 90];
 
@@ -17,14 +18,11 @@ export default function Home() {
     load,
     error,
     busy,
-    savedAt,
     completion,
     scoring,
     scoreCommanders,
     printings,
     handleFile,
-    reset,
-    forget,
     ensurePrintings,
   } = useCollection();
 
@@ -38,57 +36,23 @@ export default function Home() {
   const visible = (precons ?? []).filter((m) => m.percent >= threshold);
 
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
-      <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Deck Finder</h1>
-          <p className="mt-2 max-w-2xl text-muted">
-            Upload a collection export and find out which Commander decks you are closest to
-            already owning — ranked by completion, with a list of what is missing.
+    <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-12">
+      {/* The collection's details and its Replace and Forget live in the header. */}
+      {!collection && (
+        <header className="mb-10">
+          <h1 className={pageTitle}>Which Commander decks are you closest to?</h1>
+          <p className={lede}>
+            Drop a collection export and see every deck your cards already go a long way towards,
+            with what&apos;s missing and what it costs.
           </p>
-        </div>
-        {collection && (
-          <div className="shrink-0 text-right">
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={reset}
-                className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted hover:border-accent/60 hover:text-foreground"
-              >
-                Upload a different file
-              </button>
-              <button
-                type="button"
-                onClick={forget}
-                className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted hover:border-[#e07a6a]/60 hover:text-foreground"
-              >
-                Forget
-              </button>
-            </div>
-            {savedAt && (
-              // Stored collections go stale as cards are bought; saying when
-              // makes that visible rather than quietly wrong.
-              <p className="mt-1.5 text-xs text-muted">
-                Saved on this device{" "}
-                {new Date(savedAt).toLocaleDateString(undefined, {
-                  day: "numeric",
-                  month: "short",
-                })}
-              </p>
-            )}
-          </div>
-        )}
-      </header>
+        </header>
+      )}
 
       {load && <LoadingPanel state={load} />}
 
       {!collection && !load && <Dropzone onFile={handleFile} busy={busy} />}
 
-      {error && (
-        <p className="mt-4 rounded-lg border border-[#e07a6a]/40 bg-[#e07a6a]/10 p-4 text-sm">
-          {error}
-        </p>
-      )}
+      {error && <p className={`mt-4 ${errorBox}`}>{error}</p>}
 
       {collection && precons && (
         <>
@@ -102,21 +66,19 @@ export default function Home() {
             />
           )}
 
-          <section className="mt-10 border-t border-border pt-6">
+          <section className="mt-14 border-t border-ink pt-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-                  Official precons
-                </h2>
-                <p className="mt-1 text-xs text-muted">
+                <h2 className="font-bold">Official precons</h2>
+                <p className="text-sm text-muted">
                   {precons.filter((m) => m.percent >= 90).length} of {precons.length}{" "}
-                  near-complete — mostly ones you already own.
+                  near-complete, mostly ones you already own.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowPrecons((open) => !open)}
-                className="rounded-md border border-border px-3 py-1 text-sm text-muted hover:text-foreground"
+                className={buttonGhost}
               >
                 {showPrecons ? "Hide" : "Show"}
               </button>
@@ -124,22 +86,20 @@ export default function Home() {
 
             {showPrecons && (
               <>
-                <div className="mt-4 flex items-center gap-2 text-sm">
-                  <span className="text-muted">Show precons at least</span>
-                  {THRESHOLDS.map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setThreshold(value)}
-                      className={`rounded-md border px-2.5 py-1 ${
-                        threshold === value
-                          ? "border-accent text-accent"
-                          : "border-border text-muted hover:text-foreground"
-                      }`}
-                    >
-                      {value}%
-                    </button>
-                  ))}
+                <div className="mt-5 flex items-center gap-3 text-sm">
+                  <span className="text-muted">At least</span>
+                  <div className={segmented}>
+                    {THRESHOLDS.map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setThreshold(value)}
+                        className={segment(threshold === value)}
+                      >
+                        {value}%
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {visible.length === 0 ? (
@@ -147,7 +107,7 @@ export default function Home() {
                     No precon reaches {threshold}% with this collection.
                   </p>
                 ) : (
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                     {visible.map((match) => (
                       <DeckCard
                         key={match.deck.id}
@@ -161,7 +121,7 @@ export default function Home() {
             )}
           </section>
 
-          <footer className="mt-10 space-y-1 text-xs text-muted">
+          <footer className="mt-14 max-w-3xl space-y-1 text-xs text-quiet">
             <p>
               Basic lands are excluded from both sides of every percentage. Card data from Scryfall,
               decklists from MTGJSON and EDHREC. Bracket estimates count Game Changers only. Card

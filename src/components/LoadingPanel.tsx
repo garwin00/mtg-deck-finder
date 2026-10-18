@@ -29,24 +29,17 @@ export function LoadingPanel({ state }: { state: LoadState }) {
   const measured = state.count ? state.count.total > 0 : state.total > 0;
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-6">
-      <p className="truncate font-medium">{state.fileName}</p>
+    <div className="bg-sheet p-6 outline outline-1 outline-rule">
+      <p className="truncate font-bold">{state.fileName}</p>
 
-      <p className="mt-2 flex items-center gap-2 text-sm text-muted">
-        {state.cardsRead === undefined ? (
-          "Reading…"
-        ) : (
-          <>
-            <span className="text-[#7bd88f]" aria-hidden>
-              ✓
-            </span>
-            {state.cardsRead.toLocaleString()} cards read
-          </>
-        )}
+      <p className="mt-1 text-sm text-muted">
+        {state.cardsRead === undefined
+          ? "Reading…"
+          : `${state.cardsRead.toLocaleString()} cards read`}
       </p>
 
       <div
-        className="mt-4 h-2 overflow-hidden rounded-full bg-surface-2"
+        className="relative mt-5 h-1 bg-rule"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
@@ -54,7 +47,7 @@ export function LoadingPanel({ state }: { state: LoadState }) {
         aria-label={state.label}
       >
         <div
-          className="h-full rounded-full bg-accent transition-[width] duration-150 ease-out"
+          className="absolute inset-y-0 left-0 bg-ink transition-[width] duration-150 ease-out"
           style={{ width: `${percent}%` }}
         />
       </div>

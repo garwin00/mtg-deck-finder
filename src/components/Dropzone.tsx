@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { button } from "./ui";
 
 type Props = {
   onFile: (file: File) => void;
@@ -25,8 +26,9 @@ export function Dropzone({ onFile, busy }: Props) {
         const file = e.dataTransfer.files?.[0];
         if (file) onFile(file);
       }}
-      className={`rounded-xl border-2 border-dashed p-10 text-center transition ${
-        dragging ? "border-accent bg-surface-2" : "border-border bg-surface"
+      // The crop marks frame it as the sheet's cutting area.
+      className={`crop-marks relative px-8 py-20 text-center outline-dashed outline-1 transition-colors before:h-5! before:w-5! before:border-t-2! before:border-l-2! after:h-5! after:w-5! after:border-r-2! after:border-b-2! ${
+        dragging ? "bg-wash outline-ink" : "bg-sheet outline-quiet"
       }`}
     >
       <input
@@ -40,22 +42,21 @@ export function Dropzone({ onFile, busy }: Props) {
           e.target.value = "";
         }}
       />
-      <p className="text-lg font-medium">Drop your collection export here</p>
-      <p className="mt-1 text-sm text-muted">
+      <p className="text-xl font-bold tracking-[-0.02em]">Drop your collection export here</p>
+      <p className="mt-1.5 text-muted">
         ManaBox CSV, or anything with a card-name and quantity column.
       </p>
       <button
         type="button"
         onClick={() => input.current?.click()}
         disabled={busy}
-        className="mt-5 rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-[#241c05] disabled:opacity-50"
+        className={`mt-6 ${button}`}
       >
         {busy ? "Working…" : "Choose a file"}
       </button>
-      <p className="mt-6 text-xs text-muted">
-        Parsing happens entirely in your browser and your collection is never uploaded — no server
-        ever sees it. It is saved on this device so it is still here next time, and you can erase
-        it whenever you like.
+      <p className="mx-auto mt-8 max-w-md text-xs text-muted">
+        Read entirely in your browser and never uploaded. It&apos;s saved on this device so it&apos;s
+        still here next time, and you can forget it whenever you like.
       </p>
     </div>
   );
