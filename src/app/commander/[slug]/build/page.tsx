@@ -84,7 +84,7 @@ export default function CommanderBuildPage({ params }: { params: Promise<{ slug:
           commanderIndex: commander.cardIndex,
           recommendations: current.recommendations,
           tiers,
-          average: current.average,
+          shape: current.average,
           index: state.index,
           collection: state.collection,
           rank: state.printings.rank,

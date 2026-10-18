@@ -68,15 +68,19 @@ export function recommend(
 /**
  * Fill to DECK_SIZE by working down the tiers: the commander's own list, its
  * themes, similar commanders, then anything else owned in its colours by
- * EDHREC's overall rank. The land count and the basics' split come from the
- * average deck, so a mono-black list gets Swamps and the land count players
- * actually run, rather than a number picked here.
+ * EDHREC's overall rank. The land count and the basics' split come from
+ * `shape`, an EDHREC deck, so a mono-black list gets Swamps and the land count
+ * players actually run, rather than a number picked here.
+ *
+ * Filling a particular deck passes that deck as the shape and its owned cards
+ * as `keep`: they go in first, so only its gaps are filled.
  */
 export function buildDeck({
   commanderIndex,
   recommendations,
   tiers,
-  average,
+  shape,
+  keep = [],
   index,
   collection,
   rank,
@@ -84,7 +88,8 @@ export function buildDeck({
   commanderIndex: number;
   recommendations: Recommendation[];
   tiers: FillTier[];
-  average: DeckSource;
+  shape: DeckSource;
+  keep?: number[];
   index: CardIndex;
   collection: Collection;
   rank: number[];
@@ -97,6 +102,7 @@ export function buildDeck({
     queued.add(cardIndex);
     stream.push({ cardIndex, reason });
   };
+  for (const cardIndex of keep) push(cardIndex, { tier: "deck" });
   for (const r of recommendations) push(r.cardIndex, { tier: "commander" });
   for (const tier of tiers) for (const name of tier.names) push(resolve(index, name), tier.reason);
   // Unranked cards (0) go last; they are mostly too new or too obscure to have one.
@@ -106,12 +112,12 @@ export function buildDeck({
   for (const cardIndex of rest) push(cardIndex, { tier: "colours" });
 
   const isLand = (i: number) => index.cards[i].cat === "land";
-  const averageBasics = average.basics.reduce((s, [, n]) => s + n, 0);
-  const averageNonbasics = average.cards.filter(([i]) => isLand(i)).reduce((s, [, n]) => s + n, 0);
+  const shapeBasics = shape.basics.reduce((s, [, n]) => s + n, 0);
+  const shapeNonbasics = shape.cards.filter(([i]) => isLand(i)).reduce((s, [, n]) => s + n, 0);
 
   // Lands first, so the basics can be sized before the spells take the rest.
-  // Nonbasics are capped at the average deck's count: a large collection owns
-  // enough taplands to fill every land slot, and would crowd out the basics.
+  // Nonbasics are capped at the shape's count: a large collection owns enough
+  // taplands to fill every land slot, and would crowd out the basics.
   const picks: BuildPick[] = [];
   const take = (wanted: (i: number) => boolean, limit: number) => {
     for (const { cardIndex, reason } of stream) {
@@ -122,8 +128,8 @@ export function buildDeck({
       limit--;
     }
   };
-  take(isLand, averageNonbasics);
-  const basics = splitBasics(average.basics, averageBasics + averageNonbasics - picks.length);
+  take(isLand, shapeNonbasics);
+  const basics = splitBasics(shape.basics, shapeBasics + shapeNonbasics - picks.length);
   const basicCount = basics.reduce((s, [, n]) => s + n, 0);
   take((i) => !isLand(i), DECK_SIZE - picks.length - basicCount);
 
@@ -159,6 +165,8 @@ function splitBasics(average: [number, number][], slots: number): [number, numbe
 
 export function reasonLabel(reason: FillReason): string {
   switch (reason.tier) {
+    case "deck":
+      return "In this deck";
     case "commander":
       return "Played with this commander";
     case "theme":

@@ -4,7 +4,8 @@ import { use, useEffect, useState } from "react";
 import { DeckView } from "@/components/DeckView";
 import { useRequireCollection } from "@/components/CollectionGate";
 import { errorBox } from "@/components/ui";
-import { fetchAverageDeck, fetchCommanderData, type CardStat } from "@/lib/edhrec";
+import { buildDeck, recommend, type BuiltDeck } from "@/lib/build";
+import { fetchAverageDeck, fetchCommanderData, fetchFillTiers, type CardStat } from "@/lib/edhrec";
 import { matchDecks, type DeckMatch } from "@/lib/match";
 
 export default function CommanderDeckPage({
@@ -23,6 +24,11 @@ export default function CommanderDeckPage({
     error?: string;
   } | null>(null);
   const key = `${slug}/${theme}`;
+  // Keyed like the result, so moving to another deck starts on its original list.
+  const [chosen, setChosen] = useState<{ key: string; view: "original" | "filled" } | null>(null);
+  const view = chosen?.key === key ? chosen.view : "original";
+  const [filled, setFilled] = useState<{ key: string; deck: BuiltDeck } | null>(null);
+  const [filling, setFilling] = useState(false);
 
   const commander = state?.owned?.find((c) => c.slug === slug);
   const index = state?.index;
@@ -67,6 +73,39 @@ export default function CommanderDeckPage({
   if (!state) return null;
 
   const current = result?.key === key ? result : null;
+  const filledDeck = filled?.key === key ? filled.deck : null;
+
+  // Fetched on demand: up to six more requests to EDHREC for the fill's tiers.
+  const showView = async (next: "original" | "filled") => {
+    setChosen({ key, view: next });
+    if (next !== "filled" || filledDeck || filling) return;
+    if (!commander || !state.catalogue || !state.printings || !current?.match || !current.stats) return;
+    setFilling(true);
+    try {
+      const match = current.match;
+      const tiers = await fetchFillTiers(
+        commander,
+        state.catalogue,
+        state.index,
+        theme === "average" ? undefined : theme
+      );
+      setFilled({
+        key,
+        deck: buildDeck({
+          commanderIndex: commander.cardIndex,
+          recommendations: recommend(current.stats, state.index, state.collection, commander.cardIndex),
+          tiers,
+          shape: match.deck,
+          keep: match.entries.filter((e) => e.have > 0).map((e) => e.cardIndex),
+          index: state.index,
+          collection: state.collection,
+          rank: state.printings.rank,
+        }),
+      });
+    } finally {
+      setFilling(false);
+    }
+  };
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-10">
@@ -87,6 +126,7 @@ export default function CommanderDeckPage({
           stats={current.stats}
           backHref={`/commander/${slug}`}
           backLabel={`Back to ${commander.name}`}
+          fill={{ commander, deck: filledDeck, filling, view, onView: showView }}
         />
       )}
     </main>

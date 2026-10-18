@@ -306,6 +306,7 @@ const COLOUR_SLUGS: Record<string, string> = {
 
 /** Where a filled card came from, so the deck can say why it's there. */
 export type FillReason =
+  | { tier: "deck" }
   | { tier: "commander" }
   | { tier: "theme"; label: string }
   | { tier: "similar"; commander: string }
@@ -333,14 +334,19 @@ function namesBySynergy(page: CardLists | null): string[] {
 export async function fetchFillTiers(
   commander: OwnedCommander,
   catalogue: CommanderCatalogue,
-  index: CardIndex
+  index: CardIndex,
+  /** A theme slug to draw on first, when filling that theme's deck. */
+  leadTheme?: string
 ): Promise<FillTier[]> {
   const page = await fetchCommanderPage(commander.slug);
   if (!page) return [];
   const colours = COLOUR_SLUGS[commander.colours];
 
+  const tags = page.tag_counts ?? [];
+  const lead = tags.find((t) => t.slug === leadTheme);
+  const chosen = [...(lead ? [lead] : []), ...tags.filter((t) => t !== lead)].slice(0, FILL_THEMES);
   const themes = colours
-    ? (page.tag_counts ?? []).slice(0, FILL_THEMES).map(async (tag): Promise<FillTier> => {
+    ? chosen.map(async (tag): Promise<FillTier> => {
         const res = await fetch(`${EDHREC}/tags/${tag.slug}/${colours}.json`).catch(() => null);
         const tagPage = res?.ok ? ((await res.json()) as CardLists) : null;
         return { reason: { tier: "theme", label: tag.value }, names: namesBySynergy(tagPage) };
